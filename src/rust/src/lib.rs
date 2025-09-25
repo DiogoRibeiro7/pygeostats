@@ -26,6 +26,8 @@ fn _core(_py: Python, m: &PyModule) -> PyResult<()> {
     
     // Kriging functions  
     m.add_function(wrap_pyfunction!(ordinary_kriging_predict, m)?)?;
+    m.add_function(wrap_pyfunction!(simple_kriging_predict, m)?)?;
+    m.add_function(wrap_pyfunction!(universal_kriging_predict, m)?)?;
     m.add_function(wrap_pyfunction!(kriging_variance, m)?)?;
     
     Ok(())

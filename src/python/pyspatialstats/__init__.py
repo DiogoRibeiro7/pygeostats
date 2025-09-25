@@ -13,14 +13,15 @@ from . import kriging
 from . import utils
 
 from .variogram import Variogram, EmpiricalVariogram
-from .kriging import OrdinaryKriging, SimpleKriging
+from .kriging import OrdinaryKriging, SimpleKriging, UniversalKriging
 
 __all__ = [
     "variogram",
-    "kriging", 
+    "kriging",
     "utils",
     "Variogram",
     "EmpiricalVariogram",
     "OrdinaryKriging",
     "SimpleKriging",
+    "UniversalKriging",
 ]

@@ -3,5 +3,6 @@
 
 from .ordinary import OrdinaryKriging
 from .simple import SimpleKriging
+from .universal import UniversalKriging
 
-__all__ = ["OrdinaryKriging", "SimpleKriging"]
+__all__ = ["OrdinaryKriging", "SimpleKriging", "UniversalKriging"]
