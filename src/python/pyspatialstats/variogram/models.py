@@ -2,7 +2,7 @@
 """Theoretical variogram models."""
 
 import numpy as np
-from typing import Dict, Optional, Tuple, Union
+from typing import Dict, Optional, Union
 from sklearn.base import BaseEstimator
 import warnings
 
@@ -48,12 +48,16 @@ class Variogram(BaseEstimator):
         self.sill_ = None
         self.range_ = None
         self.is_fitted_ = False
+        self.converged_ = False
+        self.fit_statistics_: Optional[Dict[str, Union[bool, float, int, str]]] = None
+        self.fit_result_ = None
 
     def fit(
         self,
         distances: np.ndarray,
         gamma: np.ndarray,
         weights: Optional[np.ndarray] = None,
+        fix: Optional[Dict[str, bool]] = None,
     ) -> "Variogram":
         """
         Fit variogram model to empirical data.
@@ -65,7 +69,10 @@ class Variogram(BaseEstimator):
         gamma : array-like, shape (n_points,)
             Semivariance values.
         weights : array-like, shape (n_points,), optional
-            Weights for fitting. If None, uses equal weights.
+            Weights for fitting. Typically the number of point pairs in each bin.
+        fix : dict, optional
+            Dictionary indicating parameters to keep fixed during optimisation.
+            Accepted keys: "nugget", "sill", "range". Example: {"nugget": True}.
 
         Returns
         -------
@@ -78,19 +85,58 @@ class Variogram(BaseEstimator):
         if len(distances) != len(gamma):
             raise ValueError("distances and gamma must have same length")
 
+        weight_array: Optional[np.ndarray] = None
+        if weights is not None:
+            weight_array = validate_array(weights, name="weights")
+            if len(weight_array) != len(distances):
+                raise ValueError("weights must have same length as distances")
+
+        fix_mask = None
+        if fix:
+            valid_keys = {"nugget", "sill", "range"}
+            unexpected = set(fix) - valid_keys
+            if unexpected:
+                raise ValueError(f"Unknown fixed parameter keys: {unexpected}")
+            fix_mask = np.array(
+                [
+                    bool(fix.get("nugget", False)),
+                    bool(fix.get("sill", False)),
+                    bool(fix.get("range", False)),
+                ],
+                dtype=bool,
+            )
+
         # Initial parameter estimates
         initial_params = self._get_initial_params(distances, gamma)
 
         # Call Rust optimizer
-        fitted_params = fit_variogram_model(
-            distances, gamma, self.model, initial_params
+        fit_result = fit_variogram_model(
+            distances,
+            gamma,
+            self.model,
+            initial_params,
+            weights=weight_array,
+            fix_mask=fix_mask,
         )
 
-        self.nugget_ = fitted_params[0]
-        self.sill_ = fitted_params[1]
-        self.range_ = fitted_params[2]
+        params = np.asarray(fit_result.parameters, dtype=float)
+        if params.shape[0] != 3:
+            raise ValueError("Fitting result must contain three parameters")
 
+        self.nugget_ = params[0]
+        self.sill_ = params[1]
+        self.range_ = params[2]
         self.is_fitted_ = True
+        self.converged_ = bool(fit_result.converged)
+        self.fit_result_ = fit_result
+        self.fit_statistics_ = {
+            "r2": float(fit_result.r_squared),
+            "rmse": float(fit_result.rmse),
+            "converged": self.converged_,
+            "iterations": int(fit_result.iterations),
+            "message": str(fit_result.message),
+        }
+
         return self
 
     def predict(self, distances: np.ndarray) -> np.ndarray:
@@ -146,7 +192,12 @@ class Variogram(BaseEstimator):
             idx = np.argmin(np.abs(gamma - target_gamma))
             range_init = distances[idx] if idx > 0 else distances[-1] / 3
 
-        return np.array([nugget_init, sill_init, range_init])
+        params = np.array([nugget_init, sill_init, range_init], dtype=float)
+        params[0] = max(params[0], 0.0)
+        params[2] = max(params[2], 1e-6)
+        if params[1] <= params[0]:
+            params[1] = params[0] + 1e-6
+        return params
 
     def _variogram_function(self, distances: np.ndarray) -> np.ndarray:
         """Calculate variogram values using the fitted model."""
@@ -169,8 +220,8 @@ class Variogram(BaseEstimator):
             return nugget + (sill - nugget) * (1 - np.exp(-((h / range_param) ** 2)))
 
         elif self.model == "matern":
-            # Simplified Matérn with ν=0.5 (exponential)
-            warnings.warn("Matérn model using ν=0.5 (equivalent to exponential)")
+            # Simplified Matern with nu=0.5 (exponential)
+            warnings.warn("Matern model using nu=0.5 (equivalent to exponential)")
             return nugget + (sill - nugget) * (1 - np.exp(-h / range_param))
 
         else:

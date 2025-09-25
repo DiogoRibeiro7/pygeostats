@@ -20,6 +20,7 @@ fn _core(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(haversine_distances, m)?)?;
     
     // Variogram functions
+    m.add_class::<FittingResult>()?;
     m.add_function(wrap_pyfunction!(empirical_variogram, m)?)?;
     m.add_function(wrap_pyfunction!(fit_variogram_model, m)?)?;
     
