@@ -1,0 +1,202 @@
+---
+>-
+  Participation is governed by our **[Code of Conduct](CODE_OF_CONDUCT.md)**. Be
+  respectful and constructive.
+---
+
+# Contributing to PySpatialStats
+
+Thanks for helping improve **PySpatialStats**. This guide explains how to set up your environment, coding standards, how to run tests and docs, and how to propose changes.
+
+> TL;DR checklist is at the end. Please read the standards once before opening your first PR.
+
+## Development Environment
+
+**Requirements**
+
+- Python **3.9–3.12**
+- Rust **stable** (with `cargo`, `rustfmt`, `clippy`)
+- BLAS/LAPACK (OpenBLAS recommended)
+- Git, Make (optional for docs)
+
+**Recommended**
+
+- `poetry` for Python dependency management
+- `pre-commit` for local lint hooks
+
+### Quickstart (preferred: Poetry + maturin)
+
+```bash
+# Clone
+git clone https://github.com/username/pyspatialstats.git
+cd pyspatialstats
+
+# Install Poetry (if needed)
+curl -sSL https://install.python-poetry.org | python3 -
+
+# Create env and install deps (includes dev extras)
+poetry install --with dev
+
+# Build Rust extension in dev mode
+poetry run pip install maturin
+poetry run maturin develop --extras dev
+
+# Install pre-commit hooks
+poetry run pre-commit install
+```
+
+### Alternative (pip + maturin)
+
+```bash
+python -m venv .venv
+source .venv/bin/activate  # Windows: .venv\Scripts\activate
+pip install --upgrade pip maturin
+maturin develop --extras dev
+pre-commit install
+```
+
+--------------------------------------------------------------------------------
+
+## Project Layout (key paths)
+
+```
+pyspatialstats/
+├─ src/python/pyspatialstats/   # Python API (variogram, kriging, etc.)
+├─ src/rust/                    # Rust core crates (if split)
+├─ tests/                       # pytest suite
+├─ examples/                    # scripts & notebooks
+└─ docs/                        # Sphinx docs
+```
+
+--------------------------------------------------------------------------------
+
+## Coding Standards
+
+### Python
+
+- **Typing** mandatory on all public functions, classes, and module-level variables.
+- Use **Google-style docstrings** with type hints (Sphinx + napoleon).
+- Keep **inline comments** concise and informative. Prefer explaining _why_ over _what_ when the code is self-evident.
+- Prefer **NumPy**/**SciPy** primitives; avoid heavy deps unless justified.
+- Raise **specific exceptions** with clear, actionable messages.
+- Public API should be stable and minimal. Mark experimental APIs with `.. warning::` in docs and `@deprecated` notes when applicable.
+
+**Linters & Formatters** (run locally or use `pre-commit`):
+
+```bash
+# Format & lint
+black src/python/ tests/
+ruff check src/python/ tests/
+ruff format src/python/ tests/     # if using ruff format
+mypy src/python/pyspatialstats/
+```
+
+**Mypy**: aim for `--strict` cleanliness in new/modified modules. If a narrow `# type: ignore` is needed, include a short justification.
+
+### Rust
+
+- Keep code `cargo fmt`-clean and **clippy**-clean (`-D warnings`).
+- Prefer explicit types and **document safety** on `unsafe` blocks.
+- Benchmarks go under `benches/` with `criterion` where possible.
+
+--------------------------------------------------------------------------------
+
+## Tests
+
+We require tests for new features and bug fixes.
+
+- **Unit tests**: `pytest -v` under `tests/`
+- **Coverage**: CI enforces coverage via Codecov; add tests to keep or raise coverage.
+- **Property-based tests**: prefer `hypothesis` for numerical properties (e.g., semivariance non-negativity, covariance monotonicity).
+- **Numerical tolerances**: use `np.isclose(..., rtol=..., atol=...)` with documented rationale.
+
+**Run locally**
+
+```bash
+pytest tests/ -v --cov=pyspatialstats --cov-report=term-missing
+```
+
+--------------------------------------------------------------------------------
+
+## Documentation
+
+- Build with Sphinx (Read the Docs theme) + nbsphinx.
+- All public APIs must have docstrings and appear in the API rst.
+- Include **usage examples** and **parameter constraints**.
+- Prefer short runnable snippets. For plots, keep runtimes reasonable.
+
+**Build docs**
+
+```bash
+make -C docs html
+# open docs/_build/html/index.html
+```
+
+--------------------------------------------------------------------------------
+
+## Benchmarks
+
+If you change core numerics (variogram, kriging kernels, solvers), run and paste results from `benchmarks/` scripts in the PR description.
+
+```bash
+python benchmarks/benchmark_variogram.py
+python benchmarks/compare_with_gstat.py
+```
+
+State CPU, Python, Rust, BLAS, and OS.
+
+--------------------------------------------------------------------------------
+
+## Git & PR Process
+
+- Work from a feature branch off `develop`.
+- **Conventional Commits** for messages (e.g., `feat:`, `fix:`, `perf:`, `docs:`).
+- Small, focused PRs. Update tests and docs alongside code.
+- PR description should include: motivation, approach, validation (tests/bench/plots), and risk/limitations.
+- All status checks must pass: format, lint, type-check, tests, docs build.
+
+**Branch protection**
+
+- `main`: protected, release tags only.
+- `develop`: default for PRs; merges via squash or rebase.
+
+--------------------------------------------------------------------------------
+
+## Versioning & Releases
+
+- We use **Semantic Versioning**.
+- Deprecate before breaking. Add warnings and document replacements.
+- Releases are cut from `main` with tags `vX.Y.Z`. Publishing wheels is automated via CI (`release.yml`).
+
+--------------------------------------------------------------------------------
+
+## Issue Reporting
+
+Please include:
+
+- Environment (OS, Python, Rust, BLAS)
+- Exact versions (`pip freeze`, `rustc --version`)
+- Minimal reproducible example (code + data shape/sizes)
+- Expected vs actual behavior and error trace
+
+--------------------------------------------------------------------------------
+
+## Large Files & Data
+
+- Do **not** commit large datasets. Use small synthetic fixtures.
+- Use Git LFS only when strictly necessary.
+
+--------------------------------------------------------------------------------
+
+## PR Checklist (copy into your PR)
+
+- [ ] Code follows style guides; public APIs fully typed
+- [ ] Inline comments explain non-obvious logic; docstrings updated
+- [ ] Lint/format pass: `black`, `ruff`, `mypy`
+- [ ] Rust checks pass: `cargo fmt`, `cargo clippy`, `cargo test`
+- [ ] Tests added/updated; coverage not reduced
+- [ ] Docs updated and `make -C docs html` succeeds
+- [ ] Benchmarks run for core numeric changes; results included
+- [ ] No large files; CI green
+
+Thank you for contributing to PySpatialStats. Your efforts help make spatial analysis faster and more reliable for everyone.
