@@ -1,0 +1,69 @@
+[build-system]
+requires = ["maturin>=1.0,<2.0"]
+build-backend = "maturin"
+
+[project]
+name = "pyspatialstats"
+version = "0.1.0"
+description = "High-performance spatial statistics for Python"
+authors = [
+    {name = "Your Name", email = "your.email@domain.com"},
+]
+readme = "README.md"
+license = {text = "MIT"}
+keywords = ["spatial", "statistics", "geostatistics", "kriging", "variogram"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Rust",
+    "Topic :: Scientific/Engineering :: Mathematics",
+]
+requires-python = ">=3.9"
+dependencies = [
+    "numpy>=1.20.0",
+    "scipy>=1.7.0",
+    "pandas>=1.3.0",
+    "geopandas>=0.10.0",
+    "scikit-learn>=1.0.0",
+    "matplotlib>=3.5.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "pytest-benchmark",
+    "black",
+    "ruff",
+    "mypy",
+    "sphinx",
+    "nbsphinx",
+    "jupyter",
+]
+test = [
+    "pytest>=7.0",
+    "pytest-benchmark",
+    "hypothesis",
+]
+
+[tool.maturin]
+python-source = "src/python"
+module-name = "pyspatialstats._core"
+
+[tool.black]
+line-length = 88
+target-version = ['py39']
+
+[tool.ruff]
+line-length = 88
+target-version = "py39"
+
+[tool.mypy]
+python_version = "3.9"
+warn_return_any = true
+warn_unused_configs = true
