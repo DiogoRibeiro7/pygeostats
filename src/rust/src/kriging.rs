@@ -1,6 +1,6 @@
 // src/rust/src/kriging.rs
-use ndarray::{Array1, ArrayView1, ArrayView2};
 use nalgebra::{DMatrix, DVector};
+use ndarray::{Array1, ArrayView1, ArrayView2};
 use numpy::{IntoPyArray, PyArray1, PyArray2, PyReadonlyArray1, PyReadonlyArray2};
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
@@ -161,9 +161,7 @@ pub fn universal_kriging_predict<'py>(
     let design = build_design_matrix(trend_type, &known_coords);
 
     let mut system = DMatrix::<f64>::zeros(n_known + basis_size, n_known + basis_size);
-    system
-        .slice_mut((0, 0), (n_known, n_known))
-        .copy_from(&cov);
+    system.slice_mut((0, 0), (n_known, n_known)).copy_from(&cov);
     system
         .slice_mut((0, n_known), (n_known, basis_size))
         .copy_from(&design);

@@ -6,11 +6,18 @@ edition = "2021"
 [lib]
 name = "pyspatialstats"
 crate-type = ["cdylib"]
+path = "src/rust/src/lib.rs"
+
+[features]
+default = ["simd", "parallel"]
+simd = []
+parallel = []
+sparse = []
 
 [dependencies]
 pyo3 = { version = "0.20", features = ["extension-module"] }
 numpy = "0.20"
-ndarray = "0.15"
+ndarray = { version = "0.15", features = ["rayon"] }
 rayon = "1.7"
 nalgebra = "0.32"
 approx = "0.5"
