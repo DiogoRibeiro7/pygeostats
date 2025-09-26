@@ -2,7 +2,7 @@
 """Theoretical variogram models."""
 
 import numpy as np
-from typing import Dict, Optional, Union
+from typing import Dict, List, Optional
 from sklearn.base import BaseEstimator
 import warnings
 
@@ -49,8 +49,14 @@ class Variogram(BaseEstimator):
         self.range_ = None
         self.is_fitted_ = False
         self.converged_ = False
-        self.fit_statistics_: Optional[Dict[str, Union[bool, float, int, str]]] = None
+        self.fit_statistics_: Optional[Dict[str, object]] = None
         self.fit_result_ = None
+        self.status_: Optional[str] = None
+        self.fallback_used_: bool = False
+        self.warnings_: Optional[List[str]] = None
+        self.parameter_std_: Optional[np.ndarray] = None
+        self.trace_: Optional[np.ndarray] = None
+        self.diagnostics_: Optional[Dict[str, float]] = None
 
     def fit(
         self,
@@ -147,12 +153,31 @@ class Variogram(BaseEstimator):
         self.is_fitted_ = True
         self.converged_ = bool(fit_result.converged)
         self.fit_result_ = fit_result
+
+        self.status_ = str(fit_result.status)
+        self.fallback_used_ = bool(fit_result.fallback_used)
+        self.warnings_ = [str(msg) for msg in fit_result.warnings]
+        self.parameter_std_ = np.asarray(fit_result.parameter_std, dtype=float)
+        self.trace_ = (
+            np.asarray(fit_result.trace, dtype=float)
+            if fit_result.trace
+            else np.empty((0, 5), dtype=float)
+        )
+        diagnostics = {str(key): float(value) for key, value in fit_result.diagnostics}
+        self.diagnostics_ = diagnostics
+
         self.fit_statistics_ = {
             "r2": float(fit_result.r_squared),
             "rmse": float(fit_result.rmse),
             "converged": self.converged_,
             "iterations": int(fit_result.iterations),
             "message": str(fit_result.message),
+            "status": self.status_,
+            "fallback_used": self.fallback_used_,
+            "warnings": list(self.warnings_),
+            "parameter_std": self.parameter_std_.copy(),
+            "trace": self.trace_,
+            "diagnostics": diagnostics,
         }
 
         return self

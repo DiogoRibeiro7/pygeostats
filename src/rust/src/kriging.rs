@@ -69,6 +69,103 @@ pub fn ordinary_kriging_predict<'py>(
 
 /// Perform simple kriging prediction (known mean, no unbiasedness constraint)
 #[pyfunction]
+pub fn ordinary_kriging_predict_neighbors<'py>(
+    py: Python<'py>,
+    known_coords: PyReadonlyArray2<f64>,
+    known_values: PyReadonlyArray1<f64>,
+    pred_coords: PyReadonlyArray2<f64>,
+    variogram_params: PyReadonlyArray1<f64>,
+    neighbors: PyReadonlyArray2<i64>,
+    model_type: &str,
+) -> PyResult<&'py PyArray1<f64>> {
+    let known_coords = known_coords.as_array();
+    let known_values = known_values.as_array();
+    let pred_coords = pred_coords.as_array();
+    let params = variogram_params.as_array();
+    let neighbors = neighbors.as_array();
+
+    if params.len() != 3 {
+        return Err(PyValueError::new_err(
+            "variogram_params must contain three values: [nugget, sill, range]",
+        ));
+    }
+
+    if neighbors.nrows() != pred_coords.nrows() {
+        return Err(PyValueError::new_err(
+            "neighbors must have shape (n_predictions, k_neighbors)",
+        ));
+    }
+
+    let n_pred = pred_coords.nrows();
+    let mut predictions = vec![f64::NAN; n_pred];
+
+    predictions
+        .par_iter_mut()
+        .enumerate()
+        .for_each(|(idx, prediction)| {
+            let neighbor_ids: Vec<usize> = neighbors
+                .row(idx)
+                .iter()
+                .filter_map(|&value| {
+                    if value < 0 {
+                        return None;
+                    }
+                    let candidate = value as usize;
+                    if candidate < known_coords.nrows() {
+                        Some(candidate)
+                    } else {
+                        None
+                    }
+                })
+                .collect();
+
+            if neighbor_ids.is_empty() {
+                *prediction = f64::NAN;
+                return;
+            }
+
+            let k = neighbor_ids.len();
+            let mut system = DMatrix::<f64>::zeros(k + 1, k + 1);
+
+            for (row_pos, &i_idx) in neighbor_ids.iter().enumerate() {
+                let coord_i = known_coords.row(i_idx);
+                for (col_pos, &j_idx) in neighbor_ids.iter().enumerate() {
+                    let coord_j = known_coords.row(j_idx);
+                    let distance = euclidean_distance_single(coord_i, coord_j);
+                    system[(row_pos, col_pos)] =
+                        variogram_to_covariance(distance, &params, model_type);
+                }
+                system[(row_pos, k)] = 1.0;
+                system[(k, row_pos)] = 1.0;
+            }
+
+            let lu = system.lu();
+            let mut rhs = DVector::<f64>::zeros(k + 1);
+            let pred_coord = pred_coords.row(idx);
+            for (row_pos, &i_idx) in neighbor_ids.iter().enumerate() {
+                let distance = euclidean_distance_single(known_coords.row(i_idx), pred_coord);
+                rhs[row_pos] = variogram_to_covariance(distance, &params, model_type);
+            }
+            rhs[k] = 1.0;
+
+            match lu.solve(&rhs) {
+                Some(weights) => {
+                    let mut value = 0.0;
+                    for (weight_pos, &i_idx) in neighbor_ids.iter().enumerate() {
+                        value += weights[weight_pos] * known_values[i_idx];
+                    }
+                    *prediction = value;
+                }
+                None => {
+                    *prediction = f64::NAN;
+                }
+            }
+        });
+
+    Ok(Array1::from_vec(predictions).into_pyarray(py))
+}
+
+#[pyfunction]
 pub fn simple_kriging_predict<'py>(
     py: Python<'py>,
     known_coords: PyReadonlyArray2<f64>,

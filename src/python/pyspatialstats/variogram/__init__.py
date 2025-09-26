@@ -8,6 +8,15 @@ from .initialization import (
     AnisotropyInitializationCandidate,
     AnisotropyInitializationSummary,
 )
+from .streaming import (
+    StreamingVariogramBuilder,
+    StreamingVariogramDenseResult,
+    StreamingVariogramSparseResult,
+    streaming_variogram,
+    streaming_variogram_memmap,
+    memory_map_array,
+    chunk_indices,
+)
 
 __all__ = [
     "EmpiricalVariogram",
@@ -16,4 +25,11 @@ __all__ = [
     "AnisotropyResult",
     "AnisotropyInitializationCandidate",
     "AnisotropyInitializationSummary",
+    "StreamingVariogramBuilder",
+    "StreamingVariogramDenseResult",
+    "StreamingVariogramSparseResult",
+    "streaming_variogram",
+    "streaming_variogram_memmap",
+    "memory_map_array",
+    "chunk_indices",
 ]

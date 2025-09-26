@@ -12,6 +12,8 @@ Welcome to PySpatialStats, a high-performance spatial statistics library for Pyt
    tutorials/index
    api/index
    examples/index
+   benchmarks/variogram_streaming
+   benchmarks/kriging_parallel
    development
    changelog
 
@@ -96,3 +98,5 @@ Indices and tables
 * :ref:`genindex`
 * :ref:`modindex`
 * :ref:`search`
+
+

@@ -115,7 +115,60 @@ class OrdinaryKriging(BaseEstimator, RegressorMixin):
             return predictions, variance
         
         return predictions
-        
+
+    def predict_parallel(
+        self,
+        coordinates: Union[np.ndarray, gpd.GeoDataFrame, pd.DataFrame],
+        *,
+        neighbors: int = 64,
+        backend: Optional[str] = None,
+        search_k: Optional[int] = None,
+        grid_shape: Optional[Tuple[int, int]] = None,
+        halo: float = 0.0,
+        chunk_size: int = 10_000,
+        checkpoint_path: Optional[Union[str, Path]] = None,
+        checkpoint_interval: int = 5,
+        resume: bool = False,
+        progress: bool = True,
+    ) -> np.ndarray:
+        """Predict values using approximate neighbours and spatial tiling."""
+
+        if not self.is_fitted_:
+            raise ValueError("Model must be fitted before prediction")
+
+        pred_coords = validate_coordinates(coordinates)
+
+        variogram_params = np.array(
+            [self.variogram.nugget_, self.variogram.sill_, self.variogram.range_],
+            dtype=float,
+        )
+
+        executor = ParallelKrigingExecutor(
+            self.coordinates_, self.values_, variogram_params, self.variogram.model
+        )
+        neighbor_index = ApproximateNeighborIndex(
+            self.coordinates_, backend=backend, metric="euclidean"
+        )
+
+        tile_plan = None
+        if grid_shape is not None:
+            tile_plan = spatial_tiles(pred_coords, grid_shape=grid_shape, halo=halo)
+
+        checkpoint = Path(checkpoint_path) if checkpoint_path is not None else None
+
+        return executor.predict(
+            pred_coords,
+            neighbor_index=neighbor_index,
+            neighbors=int(neighbors),
+            search_k=search_k,
+            tile_plan=tile_plan,
+            chunk_size=int(chunk_size),
+            checkpoint_path=checkpoint,
+            checkpoint_interval=int(max(checkpoint_interval, 1)),
+            progress=progress,
+            resume=resume,
+        )
+
     def score(self, coordinates: np.ndarray, values: np.ndarray) -> float:
         """
         Return the coefficient of determination R^2 of the prediction.
@@ -135,3 +188,4 @@ class OrdinaryKriging(BaseEstimator, RegressorMixin):
         from sklearn.metrics import r2_score
         predictions = self.predict(coordinates)
         return r2_score(values, predictions)
+
