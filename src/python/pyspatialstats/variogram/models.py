@@ -90,6 +90,24 @@ class Variogram(BaseEstimator):
             weight_array = validate_array(weights, name="weights")
             if len(weight_array) != len(distances):
                 raise ValueError("weights must have same length as distances")
+        else:
+            weight_array = None
+
+        valid_mask = np.isfinite(distances) & np.isfinite(gamma)
+        if weight_array is not None:
+            valid_mask &= weight_array > 0
+            if np.any(weight_array > 1):
+                dense_mask = weight_array > 1
+                valid_mask &= dense_mask
+                if not np.any(valid_mask):
+                    valid_mask = weight_array > 0
+        if not np.any(valid_mask):
+            raise ValueError("No valid empirical variogram bins available for fitting")
+
+        distances = distances[valid_mask]
+        gamma = gamma[valid_mask]
+        if weight_array is not None:
+            weight_array = weight_array[valid_mask]
 
         fix_mask = None
         if fix:

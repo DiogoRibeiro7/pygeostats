@@ -1,7 +1,7 @@
 // src/rust/src/kriging.rs
 use nalgebra::{DMatrix, DVector};
 use ndarray::{Array1, ArrayView1, ArrayView2};
-use numpy::{IntoPyArray, PyArray1, PyArray2, PyReadonlyArray1, PyReadonlyArray2};
+use numpy::{IntoPyArray, PyArray1, PyReadonlyArray1, PyReadonlyArray2};
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 
@@ -17,6 +17,8 @@ pub fn ordinary_kriging_predict<'py>(
     variogram_params: PyReadonlyArray1<f64>,
     model_type: &str,
 ) -> PyResult<&'py PyArray1<f64>> {
+    let _ = known_coords;
+    let _ = model_type;
     let known_coords = known_coords.as_array();
     let known_values = known_values.as_array();
     let pred_coords = pred_coords.as_array();
@@ -208,6 +210,8 @@ pub fn kriging_variance<'py>(
     variogram_params: PyReadonlyArray1<f64>,
     model_type: &str,
 ) -> PyResult<&'py PyArray1<f64>> {
+    let _ = known_coords;
+    let _ = model_type;
     let pred_coords = pred_coords.as_array();
     let params = variogram_params.as_array();
 

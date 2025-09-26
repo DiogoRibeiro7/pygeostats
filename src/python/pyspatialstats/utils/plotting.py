@@ -1,9 +1,10 @@
+# src/python/pyspatialstats/utils/plotting.py
 """Visualization utilities for variogram and kriging diagnostics."""
 
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Iterable, Optional, Sequence, Tuple
+from typing import Dict, Iterable, Optional, Sequence, Tuple
 
 import numpy as np
 from scipy import stats
@@ -28,6 +29,7 @@ except ImportError:  # pragma: no cover - optional dependency
 
 __all__ = [
     "plot_variogram",
+    "plot_directional_variograms",
     "plot_variogram_rose",
     "plot_kriging_results",
     "plot_kriging_uncertainty",
@@ -101,7 +103,7 @@ def plot_variogram(
     if backend == "matplotlib":
         fig, ax = plt.subplots(figsize=(8, 5))
         size = None
-        if weights is not None:
+        if weights is not None and weights.size > 0:
             size = 40 * (weights / weights.max()) + 20
         ax.scatter(distances, gamma, s=size, color="tab:blue", label="Empirical")
         if lower is not None and upper is not None:
@@ -155,6 +157,97 @@ def plot_variogram(
             )
     fig.update_layout(
         title=title or "Empirical Variogram",
+        xaxis_title="Distance",
+        yaxis_title="Semivariance",
+        template="plotly_white",
+    )
+    _export_figure(fig, backend, save_path)
+    if show:
+        fig.show()
+    return fig
+
+
+def plot_directional_variograms(
+    directional_results: Dict[float, Dict[str, np.ndarray]] | Iterable[Dict[str, np.ndarray]],
+    backend: str = "matplotlib",
+    title: Optional[str] = None,
+    save_path: Optional[str] = None,
+    show: bool = True,
+):
+    """Plot multiple directional variograms for anisotropy assessment."""
+
+    backend = _ensure_backend(backend)
+    if isinstance(directional_results, dict):
+        items = directional_results.items()
+    else:
+        items = [
+            (res["angle"], res)
+            if isinstance(res, dict) and "angle" in res
+            else (res.angle, {
+                "bin_centers": res.bin_centers,
+                "gamma": res.gamma,
+                "counts": res.counts,
+                "ci_lower": res.ci_lower,
+                "ci_upper": res.ci_upper,
+            })
+            for res in directional_results
+        ]
+    curves = []
+    for angle, payload in items:
+        centers = np.asarray(payload["bin_centers"])
+        gamma = np.asarray(payload["gamma"])
+        counts = np.asarray(payload.get("counts", np.ones_like(centers)))
+        valid = (counts > 0) & np.isfinite(centers) & np.isfinite(gamma)
+        if np.any(valid):
+            curves.append(
+                (
+                    float(angle),
+                    centers[valid],
+                    gamma[valid],
+                    np.asarray(payload.get("ci_lower", np.full_like(centers, np.nan)))[valid],
+                    np.asarray(payload.get("ci_upper", np.full_like(centers, np.nan)))[valid],
+                )
+            )
+    curves.sort(key=lambda item: item[0])
+
+    if backend == "matplotlib":
+        fig, ax = plt.subplots(figsize=(8, 5))
+        for angle, centers, gamma, lower, upper in curves:
+            label = f"{angle:.0f} deg"
+            ax.plot(centers, gamma, label=label)
+            if np.any(np.isfinite(lower)) and np.any(np.isfinite(upper)):
+                ax.fill_between(centers, lower, upper, alpha=0.15)
+        ax.set_xlabel("Distance")
+        ax.set_ylabel("Semivariance")
+        ax.set_title(title or "Directional variograms")
+        ax.grid(True, alpha=0.3)
+        ax.legend(title="Direction")
+        _export_figure(fig, backend, save_path)
+        if show:
+            plt.show(block=False)
+        return fig
+
+    fig = go.Figure()
+    for angle, centers, gamma, lower, upper in curves:
+        label = f"{angle:.0f} deg"
+        fig.add_trace(
+            go.Scatter(x=centers, y=gamma, mode="lines+markers", name=label)
+        )
+        if np.any(np.isfinite(lower)) and np.any(np.isfinite(upper)):
+            fig.add_trace(
+                go.Scatter(
+                    x=np.concatenate([centers, centers[::-1]]),
+                    y=np.concatenate([upper, lower[::-1]]),
+                    fill="toself",
+                    fillcolor="rgba(0,0,0,0.08)",
+                    line=dict(color="rgba(255,255,255,0)"),
+                    name=f"{label} CI",
+                    hoverinfo="skip",
+                    showlegend=False,
+                )
+            )
+    fig.update_layout(
+        title=title or "Directional variograms",
         xaxis_title="Distance",
         yaxis_title="Semivariance",
         template="plotly_white",

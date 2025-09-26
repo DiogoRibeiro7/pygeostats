@@ -3,6 +3,17 @@
 
 from .empirical import EmpiricalVariogram
 from .models import Variogram
-from .fitting import fit_variogram
+from .directional import DirectionalVariogram, AnisotropyResult
+from .initialization import (
+    AnisotropyInitializationCandidate,
+    AnisotropyInitializationSummary,
+)
 
-__all__ = ["EmpiricalVariogram", "Variogram", "fit_variogram"]
+__all__ = [
+    "EmpiricalVariogram",
+    "Variogram",
+    "DirectionalVariogram",
+    "AnisotropyResult",
+    "AnisotropyInitializationCandidate",
+    "AnisotropyInitializationSummary",
+]

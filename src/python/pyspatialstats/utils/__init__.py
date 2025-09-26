@@ -4,6 +4,7 @@
 from .validation import validate_coordinates, validate_values, validate_array
 from .plotting import (
     plot_variogram,
+    plot_directional_variograms,
     plot_variogram_rose,
     plot_kriging_results,
     plot_kriging_uncertainty,
@@ -20,6 +21,7 @@ __all__ = [
     "validate_values",
     "validate_array",
     "plot_variogram",
+    "plot_directional_variograms",
     "plot_variogram_rose",
     "plot_kriging_results",
     "plot_kriging_uncertainty",

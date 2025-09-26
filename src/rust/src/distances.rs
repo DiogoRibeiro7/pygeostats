@@ -308,6 +308,8 @@ fn haversine_pair(p1: ArrayView1<f64>, p2: ArrayView1<f64>, radius: f64, use_sim
             return haversine_simd(p1, p2, radius);
         }
     }
+    #[cfg(not(feature = "simd"))]
+    let _ = use_simd;
     haversine_scalar(p1, p2, radius)
 }
 
