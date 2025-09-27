@@ -1,9 +1,9 @@
 # PySpatialStats
 
-[![CI](https://github.com/username/pyspatialstats/workflows/CI/badge.svg)](https://github.com/username/pyspatialstats/actions)
+[![CI](https://github.com/diogoribeiro7/pyspatialstats/workflows/CI/badge.svg)](https://github.com/diogoribeiro7/pyspatialstats/actions)
 [![PyPI version](https://badge.fury.io/py/pyspatialstats.svg)](https://badge.fury.io/py/pyspatialstats)
 [![Documentation Status](https://readthedocs.org/projects/pyspatialstats/badge/?version=latest)](https://pyspatialstats.readthedocs.io/en/latest/?badge=latest)
-[![Coverage Status](https://codecov.io/gh/username/pyspatialstats/branch/main/graph/badge.svg)](https://codecov.io/gh/username/pyspatialstats)
+[![Coverage Status](https://codecov.io/gh/diogoribeiro7/pyspatialstats/branch/main/graph/badge.svg)](https://codecov.io/gh/diogoribeiro7/pyspatialstats)
 
 High-performance spatial statistics library for Python with Rust-accelerated core algorithms.
 
