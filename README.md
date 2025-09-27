@@ -12,8 +12,10 @@ High-performance spatial statistics library for Python with Rust-accelerated cor
 * **Variogram Analysis**: Empirical variogram computation and theoretical model fitting
 * **Kriging Interpolation**: Ordinary, simple, and universal kriging with uncertainty quantification  
 * **High Performance**: Rust-accelerated core algorithms for maximum speed
+* **Large-Data Variograms**: Streaming accumulators, memory-mapped I/O, and sparse summaries for million-point datasets
 * **Scikit-learn Compatible**: Familiar API with `.fit()`, `.predict()`, and `.score()` methods
 * **GeoPandas Integration**: Native support for spatial data structures
+* **Scalable Kriging**: Approximate neighbours, tiling, progress tracking, and checkpointing for large grids
 
 ## Quick Start
 
@@ -59,3 +61,4 @@ Contributions are welcome! Please see the [CONTRIBUTING.md](CONTRIBUTING.md) fil
 ## License
 
 This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
+
