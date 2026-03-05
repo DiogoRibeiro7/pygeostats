@@ -12,12 +12,16 @@ from . import point_patterns
 from . import utils
 
 from .point_patterns import (
+    cluster_validation_metrics,
     f_function,
     g_function,
+    getis_ord_gi_star,
+    kernel_density_estimate,
     nearest_neighbor_distances,
     pair_correlation_function,
     ripley_k_function,
     ripley_l_function,
+    spatial_dbscan,
 )
 
 kriging = None
@@ -70,6 +74,10 @@ __all__ = [
     "g_function",
     "f_function",
     "pair_correlation_function",
+    "spatial_dbscan",
+    "getis_ord_gi_star",
+    "kernel_density_estimate",
+    "cluster_validation_metrics",
 ]
 
 if kriging is not None:

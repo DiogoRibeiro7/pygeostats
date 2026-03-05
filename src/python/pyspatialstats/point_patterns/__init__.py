@@ -8,6 +8,12 @@ from .basic import (
     ripley_k_function,
     ripley_l_function,
 )
+from .clustering import (
+    cluster_validation_metrics,
+    getis_ord_gi_star,
+    kernel_density_estimate,
+    spatial_dbscan,
+)
 
 __all__ = [
     "nearest_neighbor_distances",
@@ -16,4 +22,8 @@ __all__ = [
     "g_function",
     "f_function",
     "pair_correlation_function",
+    "spatial_dbscan",
+    "getis_ord_gi_star",
+    "kernel_density_estimate",
+    "cluster_validation_metrics",
 ]

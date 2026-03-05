@@ -72,10 +72,10 @@ Create a comprehensive, high-performance spatial statistics library for Python w
 
 ### 3.2 Spatial Clustering
 
-- [ ] DBSCAN spatial variant
-- [ ] Hot spot analysis (Getis-Ord)
-- [ ] Kernel density estimation
-- [ ] Cluster validation metrics
+- [x] DBSCAN spatial variant
+- [x] Hot spot analysis (Getis-Ord)
+- [x] Kernel density estimation
+- [x] Cluster validation metrics
 
 ### 3.3 Point Process Models
 
