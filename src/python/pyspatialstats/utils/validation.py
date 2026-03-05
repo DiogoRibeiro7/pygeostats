@@ -4,11 +4,15 @@
 import numpy as np
 from typing import Union
 import pandas as pd
-import geopandas as gpd
+
+try:
+    import geopandas as gpd
+except ModuleNotFoundError:  # pragma: no cover - optional dependency
+    gpd = None
 
 
 def validate_coordinates(
-    coordinates: Union[np.ndarray, pd.DataFrame, gpd.GeoDataFrame]
+    coordinates: Union[np.ndarray, pd.DataFrame, "gpd.GeoDataFrame"]
 ) -> np.ndarray:
     """
     Validate and convert coordinates to numpy array.
@@ -23,7 +27,7 @@ def validate_coordinates(
     coords : ndarray, shape (n_samples, n_features)
         Validated coordinate array.
     """
-    if isinstance(coordinates, gpd.GeoDataFrame):
+    if gpd is not None and isinstance(coordinates, gpd.GeoDataFrame):
         # Extract coordinates from geometry column
         if coordinates.geometry.isna().any():
             raise ValueError("GeoDataFrame contains null geometries")

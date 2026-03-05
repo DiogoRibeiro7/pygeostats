@@ -65,10 +65,10 @@ Create a comprehensive, high-performance spatial statistics library for Python w
 
 ### 3.1 Basic Point Pattern Tools
 
-- [ ] Nearest neighbor analysis
-- [ ] Ripley's K and L functions
-- [ ] G and F functions
-- [ ] Pair correlation function
+- [x] Nearest neighbor analysis
+- [x] Ripley's K and L functions
+- [x] G and F functions
+- [x] Pair correlation function
 
 ### 3.2 Spatial Clustering
 
