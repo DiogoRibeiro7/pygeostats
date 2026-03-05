@@ -19,6 +19,7 @@ from .processes import (
     simulate_marked_poisson_process,
     simulate_poisson_process,
 )
+from .segregation import compute_spatial_segregation_indices
 
 __all__ = [
     "nearest_neighbor_distances",
@@ -34,4 +35,5 @@ __all__ = [
     "simulate_poisson_process",
     "simulate_cox_process",
     "simulate_marked_poisson_process",
+    "compute_spatial_segregation_indices",
 ]

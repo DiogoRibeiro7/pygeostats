@@ -21,6 +21,7 @@ from .point_patterns import (
     pair_correlation_function,
     ripley_k_function,
     ripley_l_function,
+    compute_spatial_segregation_indices,
     simulate_cox_process,
     simulate_marked_poisson_process,
     simulate_poisson_process,
@@ -84,6 +85,7 @@ __all__ = [
     "simulate_cox_process",
     "simulate_marked_poisson_process",
     "simulate_poisson_process",
+    "compute_spatial_segregation_indices",
 ]
 
 if kriging is not None:
