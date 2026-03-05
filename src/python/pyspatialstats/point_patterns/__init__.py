@@ -14,7 +14,11 @@ from .clustering import (
     kernel_density_estimate,
     spatial_dbscan,
 )
-from .processes import simulate_cox_process, simulate_poisson_process
+from .processes import (
+    simulate_cox_process,
+    simulate_marked_poisson_process,
+    simulate_poisson_process,
+)
 
 __all__ = [
     "nearest_neighbor_distances",
@@ -29,4 +33,5 @@ __all__ = [
     "cluster_validation_metrics",
     "simulate_poisson_process",
     "simulate_cox_process",
+    "simulate_marked_poisson_process",
 ]

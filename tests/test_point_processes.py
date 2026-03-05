@@ -2,7 +2,11 @@
 
 import numpy as np
 
-from pyspatialstats.point_patterns import simulate_cox_process, simulate_poisson_process
+from pyspatialstats.point_patterns import (
+    simulate_cox_process,
+    simulate_marked_poisson_process,
+    simulate_poisson_process,
+)
 
 
 def test_poisson_process_reproducible_with_seed() -> None:
@@ -61,3 +65,38 @@ def test_cox_process_with_intensity_output() -> None:
     assert result["x"].shape == (30, 30)
     assert result["y"].shape == (30, 30)
     assert np.all(result["intensity"] > 0.0)
+
+
+def test_marked_poisson_process_reproducible_with_seed() -> None:
+    result1 = simulate_marked_poisson_process(
+        30.0,
+        marks=("A", "B", "C"),
+        mark_probabilities=np.array([0.2, 0.5, 0.3]),
+        bounds=(0.0, 2.0, 0.0, 2.0),
+        random_state=11,
+    )
+    result2 = simulate_marked_poisson_process(
+        30.0,
+        marks=("A", "B", "C"),
+        mark_probabilities=np.array([0.2, 0.5, 0.3]),
+        bounds=(0.0, 2.0, 0.0, 2.0),
+        random_state=11,
+    )
+
+    assert np.array_equal(result1["points"], result2["points"])
+    assert np.array_equal(result1["marks"], result2["marks"])
+
+
+def test_marked_poisson_process_mark_support_and_lengths() -> None:
+    result = simulate_marked_poisson_process(
+        40.0,
+        marks=np.array([1, 2, 3]),
+        mark_probabilities=np.array([0.1, 0.2, 0.7]),
+        random_state=5,
+    )
+
+    points = result["points"]
+    marks = result["marks"]
+    assert points.shape[0] == marks.shape[0]
+    if len(marks) > 0:
+        assert set(np.unique(marks)).issubset({1, 2, 3})

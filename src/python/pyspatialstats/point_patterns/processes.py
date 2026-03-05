@@ -144,3 +144,72 @@ def simulate_cox_process(
             "y": grid_y,
         }
     return points
+
+
+def simulate_marked_poisson_process(
+    intensity: float,
+    marks: np.ndarray | Tuple[str, ...] | Tuple[int, ...] = ("A", "B"),
+    mark_probabilities: Optional[np.ndarray] = None,
+    bounds: Tuple[float, float, float, float] = (0.0, 1.0, 0.0, 1.0),
+    random_state: Optional[int] = None,
+) -> Dict[str, np.ndarray]:
+    """
+    Simulate a homogeneous marked Poisson point process.
+
+    Parameters
+    ----------
+    intensity : float
+        Event intensity per unit area.
+    marks : array-like
+        Available mark categories.
+    mark_probabilities : array-like, optional
+        Probabilities for mark categories. If None, uses uniform probabilities.
+    bounds : tuple of float
+        (xmin, xmax, ymin, ymax) simulation window.
+    random_state : int, optional
+        Seed for reproducible simulations.
+    """
+
+    if intensity < 0.0:
+        raise ValueError("intensity must be non-negative")
+
+    mark_values = np.asarray(marks)
+    if mark_values.ndim != 1 or len(mark_values) == 0:
+        raise ValueError("marks must be a non-empty 1D array-like")
+
+    if mark_probabilities is None:
+        probabilities = np.full(len(mark_values), 1.0 / len(mark_values))
+    else:
+        probabilities = np.asarray(mark_probabilities, dtype=np.float64)
+        if probabilities.ndim != 1 or len(probabilities) != len(mark_values):
+            raise ValueError("mark_probabilities must match marks length")
+        if np.any(probabilities < 0.0):
+            raise ValueError("mark_probabilities must be non-negative")
+        total = float(np.sum(probabilities))
+        if total <= 0.0:
+            raise ValueError("mark_probabilities must sum to a positive value")
+        probabilities = probabilities / total
+
+    xmin, xmax, ymin, ymax = bounds
+    if xmax <= xmin or ymax <= ymin:
+        raise ValueError("Invalid bounds; expected xmin < xmax and ymin < ymax")
+
+    area = (xmax - xmin) * (ymax - ymin)
+    mean_count = intensity * area
+
+    rng = np.random.default_rng(random_state)
+    n_points = int(rng.poisson(mean_count))
+    if n_points == 0:
+        return {
+            "points": np.empty((0, 2), dtype=np.float64),
+            "marks": np.empty((0,), dtype=mark_values.dtype),
+        }
+
+    x = rng.uniform(xmin, xmax, size=n_points)
+    y = rng.uniform(ymin, ymax, size=n_points)
+    sampled_marks = rng.choice(mark_values, size=n_points, p=probabilities)
+
+    return {
+        "points": np.column_stack([x, y]).astype(np.float64),
+        "marks": sampled_marks,
+    }

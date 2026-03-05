@@ -81,7 +81,7 @@ Create a comprehensive, high-performance spatial statistics library for Python w
 
 - [x] Poisson process simulation
 - [x] Cox process basics
-- [ ] Marked point patterns
+- [x] Marked point patterns
 - [ ] Spatial segregation indices
 
 ## Phase 4: Spatial Autocorrelation & Regression (Months 10-12)
