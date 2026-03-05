@@ -21,6 +21,7 @@ from .point_patterns import (
     pair_correlation_function,
     ripley_k_function,
     ripley_l_function,
+    simulate_cox_process,
     simulate_poisson_process,
     spatial_dbscan,
 )
@@ -79,6 +80,7 @@ __all__ = [
     "getis_ord_gi_star",
     "kernel_density_estimate",
     "cluster_validation_metrics",
+    "simulate_cox_process",
     "simulate_poisson_process",
 ]
 

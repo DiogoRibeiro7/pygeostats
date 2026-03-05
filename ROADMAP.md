@@ -80,7 +80,7 @@ Create a comprehensive, high-performance spatial statistics library for Python w
 ### 3.3 Point Process Models
 
 - [x] Poisson process simulation
-- [ ] Cox process basics
+- [x] Cox process basics
 - [ ] Marked point patterns
 - [ ] Spatial segregation indices
 
