@@ -9,6 +9,7 @@ A comprehensive spatial statistics library with Rust-accelerated core algorithms
 __version__ = "0.1.0"
 
 from . import point_patterns
+from . import spatial_autocorrelation
 from . import utils
 
 from .point_patterns import (
@@ -27,6 +28,7 @@ from .point_patterns import (
     simulate_poisson_process,
     spatial_dbscan,
 )
+from .spatial_autocorrelation import local_morans_i, morans_i, spatial_weights_knn
 
 kriging = None
 validation = None
@@ -72,6 +74,7 @@ except ModuleNotFoundError:
 __all__ = [
     "utils",
     "point_patterns",
+    "spatial_autocorrelation",
     "nearest_neighbor_distances",
     "ripley_k_function",
     "ripley_l_function",
@@ -86,6 +89,9 @@ __all__ = [
     "simulate_marked_poisson_process",
     "simulate_poisson_process",
     "compute_spatial_segregation_indices",
+    "spatial_weights_knn",
+    "morans_i",
+    "local_morans_i",
 ]
 
 if kriging is not None:
