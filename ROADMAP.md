@@ -89,7 +89,7 @@ Create a comprehensive, high-performance spatial statistics library for Python w
 ### 4.1 Spatial Autocorrelation
 
 - [x] Moran's I (global and local)
-- [ ] Geary's C
+- [x] Geary's C
 - [ ] Getis-Ord statistics
 - [ ] Spatial weights matrix creation
 

@@ -3,6 +3,8 @@
 import numpy as np
 
 from pyspatialstats.spatial_autocorrelation import (
+    gearys_c,
+    local_gearys_c,
     local_morans_i,
     morans_i,
     spatial_weights_knn,
@@ -45,3 +47,35 @@ def test_local_morans_i_output_shape() -> None:
     assert result["I_local"].shape == values.shape
     assert result["z"].shape == values.shape
     assert np.all(np.isfinite(result["I_local"]))
+
+
+def test_global_gearys_c_less_than_one_for_smooth_field() -> None:
+    coords = _grid_coords(12)
+    values = coords[:, 0] + coords[:, 1]
+    w = spatial_weights_knn(coords, k=8)
+    result = gearys_c(values, w, permutations=99, random_state=10)
+
+    assert result["C"] < 1.0
+    assert result["p_value"] <= 0.05
+
+
+def test_global_gearys_c_near_one_for_random_field() -> None:
+    coords = _grid_coords(12)
+    rng = np.random.default_rng(123)
+    values = rng.normal(0.0, 1.0, size=len(coords))
+    w = spatial_weights_knn(coords, k=8)
+    result = gearys_c(values, w, permutations=99, random_state=12)
+
+    assert abs(result["C"] - 1.0) < 0.3
+
+
+def test_local_gearys_c_output_shape() -> None:
+    coords = _grid_coords(10)
+    values = np.sin(coords[:, 0] * np.pi) + np.cos(coords[:, 1] * np.pi)
+    w = spatial_weights_knn(coords, k=6)
+    result = local_gearys_c(values, w)
+
+    assert set(result.keys()) == {"C_local", "z"}
+    assert result["C_local"].shape == values.shape
+    assert result["z"].shape == values.shape
+    assert np.all(np.isfinite(result["C_local"]))

@@ -28,7 +28,13 @@ from .point_patterns import (
     simulate_poisson_process,
     spatial_dbscan,
 )
-from .spatial_autocorrelation import local_morans_i, morans_i, spatial_weights_knn
+from .spatial_autocorrelation import (
+    gearys_c,
+    local_gearys_c,
+    local_morans_i,
+    morans_i,
+    spatial_weights_knn,
+)
 
 kriging = None
 validation = None
@@ -92,6 +98,8 @@ __all__ = [
     "spatial_weights_knn",
     "morans_i",
     "local_morans_i",
+    "gearys_c",
+    "local_gearys_c",
 ]
 
 if kriging is not None:
