@@ -1,7 +1,7 @@
 // src/rust/src/distances.rs
 use numpy::{IntoPyArray, PyArray2, PyReadonlyArray2};
 use pyo3::prelude::*;
-use ndarray::{Array2, ArrayView2};
+use ndarray::{Array2, ArrayView1};
 use rayon::prelude::*;
 
 /// Calculate Euclidean distances between all pairs of points

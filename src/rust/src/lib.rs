@@ -6,7 +6,6 @@ mod kriging;
 mod anisotropic_kriging;
 mod utils;
 mod variogram;
-mod variogram;
 
 use distances::{euclidean_distances, haversine_distances};
 use kriging::{
@@ -33,19 +32,13 @@ fn _core(_py: Python, m: &PyModule) -> PyResult<()> {
     // Variogram functions
     m.add_class::<FittingResult>()?;
     m.add_class::<StreamingVariogramAccumulator>()?;
-    m.add_class::<FittingResult>()?;
-    m.add_class::<StreamingVariogramAccumulator>()?;
     m.add_function(wrap_pyfunction!(empirical_variogram, m)?)?;
-    m.add_function(wrap_pyfunction!(streaming_variogram, m)?)?;
     m.add_function(wrap_pyfunction!(streaming_variogram, m)?)?;
     m.add_function(wrap_pyfunction!(fit_variogram_model, m)?)?;
     m.add_function(wrap_pyfunction!(fit_anisotropic_variogram, m)?)?;
 
     // Kriging functions
     m.add_function(wrap_pyfunction!(ordinary_kriging_predict, m)?)?;
-    m.add_function(wrap_pyfunction!(ordinary_kriging_predict_neighbors, m)?)?;
-    m.add_function(wrap_pyfunction!(simple_kriging_predict, m)?)?;
-    m.add_function(wrap_pyfunction!(universal_kriging_predict, m)?)?;
     m.add_function(wrap_pyfunction!(ordinary_kriging_predict_neighbors, m)?)?;
     m.add_function(wrap_pyfunction!(simple_kriging_predict, m)?)?;
     m.add_function(wrap_pyfunction!(universal_kriging_predict, m)?)?;

@@ -96,6 +96,21 @@ class TestOrdinaryKriging:
         assert len(variance) == len(self.pred_coords)
         assert np.all(variance >= 0)  # Variance should be non-negative
 
+    def test_variance_near_zero_at_observed_points_without_nugget(self):
+        """Kriging variance should be ~0 at observed points when nugget is zero."""
+        variogram = Variogram(model="exponential")
+        variogram.nugget_ = 0.0
+        variogram.sill_ = 1.0
+        variogram.range_ = 2.0
+        variogram.is_fitted_ = True
+
+        kriging = OrdinaryKriging(variogram)
+        kriging.fit(self.known_coords, self.known_values)
+        _, variance = kriging.predict(self.known_coords, return_variance=True)
+
+        assert np.all(variance >= 0.0)
+        assert np.max(variance) < 1e-6
+
     def test_score(self):
         """Test R^2 scoring."""
         kriging = OrdinaryKriging(self.variogram)

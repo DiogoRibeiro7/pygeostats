@@ -32,7 +32,7 @@ Create a comprehensive, high-performance spatial statistics library for Python w
 ### 1.4 Basic Kriging Implementation
 
 - [x] Ordinary kriging (Rust core)
-- [ ] Prediction variance calculation
+- [x] Prediction variance calculation
 - [x] Cross-validation framework
 - [x] Memory-efficient large dataset handling
 

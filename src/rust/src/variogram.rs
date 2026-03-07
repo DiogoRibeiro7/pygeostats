@@ -240,7 +240,11 @@ impl StreamingVariogramAccumulator {
             }
             last = edge;
         }
-        let centers: Vec<f64> = edges.windows(2).map(|w| 0.5 * (w[0] + w[1])).collect();
+        let centers: Vec<f64> = edges
+            .windows(2)
+            .into_iter()
+            .map(|w| 0.5 * (w[0] + w[1]))
+            .collect();
         Ok(Self {
             bin_edges: edges.to_vec(),
             bin_centers: centers,

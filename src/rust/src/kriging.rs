@@ -4,6 +4,7 @@ use ndarray::{Array1, ArrayView1, ArrayView2};
 use numpy::{IntoPyArray, PyArray1, PyReadonlyArray1, PyReadonlyArray2};
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
+use rayon::prelude::*;
 
 use crate::utils::euclidean_distance_single;
 
@@ -298,7 +299,7 @@ pub fn universal_kriging_predict<'py>(
     Ok(predictions.into_pyarray(py))
 }
 
-/// Calculate kriging variance (placeholder)
+/// Calculate ordinary kriging variance.
 #[pyfunction]
 pub fn kriging_variance<'py>(
     py: Python<'py>,
@@ -307,16 +308,55 @@ pub fn kriging_variance<'py>(
     variogram_params: PyReadonlyArray1<f64>,
     model_type: &str,
 ) -> PyResult<&'py PyArray1<f64>> {
-    let _ = known_coords;
-    let _ = model_type;
+    let known_coords = known_coords.as_array();
     let pred_coords = pred_coords.as_array();
     let params = variogram_params.as_array();
+
+    if params.len() != 3 {
+        return Err(PyValueError::new_err(
+            "variogram_params must contain three values: [nugget, sill, range]",
+        ));
+    }
+
+    let n_known = known_coords.nrows();
+    if n_known == 0 {
+        return Err(PyValueError::new_err(
+            "known_coords must contain at least one point",
+        ));
+    }
 
     let n_pred = pred_coords.nrows();
     let mut variances = Array1::<f64>::zeros(n_pred);
 
-    for i in 0..n_pred {
-        variances[i] = params[1];
+    let cov = build_covariance_matrix(&known_coords, &params, model_type);
+    let mut system = DMatrix::<f64>::zeros(n_known + 1, n_known + 1);
+    system.slice_mut((0, 0), (n_known, n_known)).copy_from(&cov);
+    for i in 0..n_known {
+        system[(i, n_known)] = 1.0;
+        system[(n_known, i)] = 1.0;
+    }
+
+    let lu = system.lu();
+    let c00 = variogram_to_covariance(0.0, &params, model_type);
+
+    for p in 0..n_pred {
+        let mut rhs = DVector::<f64>::zeros(n_known + 1);
+        for i in 0..n_known {
+            let distance = euclidean_distance_single(known_coords.row(i), pred_coords.row(p));
+            rhs[i] = variogram_to_covariance(distance, &params, model_type);
+        }
+        rhs[n_known] = 1.0;
+
+        let solution = lu
+            .solve(&rhs)
+            .ok_or_else(|| PyValueError::new_err("Failed to solve kriging variance system"))?;
+
+        let mut w_dot_c = 0.0;
+        for i in 0..n_known {
+            w_dot_c += solution[i] * rhs[i];
+        }
+        let lagrange = solution[n_known];
+        variances[p] = (c00 - w_dot_c - lagrange).max(0.0);
     }
 
     Ok(variances.into_pyarray(py))
