@@ -90,8 +90,8 @@ Create a comprehensive, high-performance spatial statistics library for Python w
 
 - [x] Moran's I (global and local)
 - [x] Geary's C
-- [ ] Getis-Ord statistics
-- [ ] Spatial weights matrix creation
+- [x] Getis-Ord statistics
+- [x] Spatial weights matrix creation
 
 ### 4.2 Spatial Regression
 

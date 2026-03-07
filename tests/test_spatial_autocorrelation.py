@@ -4,9 +4,14 @@ import numpy as np
 
 from pyspatialstats.spatial_autocorrelation import (
     gearys_c,
+    global_getis_ord_g,
+    local_getis_ord_g,
     local_gearys_c,
     local_morans_i,
     morans_i,
+    row_standardize_weights,
+    spatial_weights_distance_band,
+    spatial_weights_inverse_distance,
     spatial_weights_knn,
 )
 
@@ -79,3 +84,52 @@ def test_local_gearys_c_output_shape() -> None:
     assert result["C_local"].shape == values.shape
     assert result["z"].shape == values.shape
     assert np.all(np.isfinite(result["C_local"]))
+
+
+def test_local_getis_ord_detects_hot_area() -> None:
+    coords = _grid_coords(12)
+    values = np.ones(len(coords))
+    hotspot = (coords[:, 0] > 0.7) & (coords[:, 1] > 0.7)
+    values[hotspot] = 10.0
+
+    w = spatial_weights_knn(coords, k=8)
+    result = local_getis_ord_g(values, w, include_self=True)
+    z = result["z_score"]
+
+    assert z.shape == values.shape
+    assert np.mean(z[hotspot]) > np.mean(z[~hotspot])
+
+
+def test_global_getis_ord_returns_stat_and_pvalue() -> None:
+    coords = _grid_coords(10)
+    values = coords[:, 0] + coords[:, 1]
+    w = spatial_weights_knn(coords, k=6)
+    result = global_getis_ord_g(values, w, permutations=99, random_state=3)
+
+    assert set(result.keys()) >= {"G", "expected_G", "p_value"}
+    assert np.isfinite(result["G"])
+    assert 0.0 <= result["p_value"] <= 1.0
+
+
+def test_distance_band_weights_shape_and_row_sums() -> None:
+    coords = _grid_coords(8)
+    w = spatial_weights_distance_band(coords, threshold=0.25, binary=True)
+    assert w.shape == (len(coords), len(coords))
+    row_sums = w.sum(axis=1)
+    assert np.all((np.isclose(row_sums, 1.0)) | (np.isclose(row_sums, 0.0)))
+
+
+def test_inverse_distance_weights_are_nonnegative() -> None:
+    coords = _grid_coords(6)
+    w = spatial_weights_inverse_distance(coords, power=1.5, max_distance=0.5)
+    assert w.shape == (len(coords), len(coords))
+    assert np.all(w >= 0.0)
+    assert np.allclose(np.diag(w), 0.0)
+
+
+def test_row_standardize_weights_handles_zero_rows() -> None:
+    w = np.array([[0.0, 2.0, 0.0], [0.0, 0.0, 0.0], [1.0, 1.0, 0.0]])
+    ws = row_standardize_weights(w)
+    assert np.isclose(np.sum(ws[0]), 1.0)
+    assert np.isclose(np.sum(ws[2]), 1.0)
+    assert np.isclose(np.sum(ws[1]), 0.0)

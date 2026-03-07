@@ -7,37 +7,7 @@ from typing import Dict, Optional
 import numpy as np
 from scipy.stats import norm
 
-from pyspatialstats.utils.validation import validate_array, validate_coordinates
-
-
-def spatial_weights_knn(
-    coords: np.ndarray,
-    k: int = 8,
-    row_standardize: bool = True,
-) -> np.ndarray:
-    """Build a binary k-nearest-neighbor spatial weights matrix."""
-
-    arr = validate_coordinates(coords)
-    n = len(arr)
-    if n < 2:
-        raise ValueError("At least two points are required")
-    if k < 1 or k >= n:
-        raise ValueError("k must satisfy 1 <= k < n")
-
-    distances = np.linalg.norm(arr[:, None, :2] - arr[None, :, :2], axis=2)
-    np.fill_diagonal(distances, np.inf)
-    neighbors = np.argpartition(distances, kth=k - 1, axis=1)[:, :k]
-
-    weights = np.zeros((n, n), dtype=np.float64)
-    rows = np.repeat(np.arange(n), k)
-    weights[rows, neighbors.ravel()] = 1.0
-
-    if row_standardize:
-        row_sums = weights.sum(axis=1, keepdims=True)
-        row_sums[row_sums == 0.0] = 1.0
-        weights = weights / row_sums
-
-    return weights
+from pyspatialstats.utils.validation import validate_array
 
 
 def _morans_i_stat(values: np.ndarray, weights: np.ndarray) -> float:
