@@ -1,6 +1,6 @@
 # pygeostats
 
-[![CI](https://github.com/DiogoRibeiro7/pyspatialstats/actions/workflows/ci.yml/badge.svg?branch=develop)](https://github.com/DiogoRibeiro7/pyspatialstats/actions/workflows/ci.yml)
+[![CI](https://github.com/DiogoRibeiro7/pygeostats/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/DiogoRibeiro7/pygeostats/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 Geostatistics for Python with a Rust-accelerated core: variograms, kriging,
@@ -16,17 +16,9 @@ known and tracked as strict `xfail` tests, the most serious being in variogram
 model fitting — see [Known limitations](#known-limitations). Read that section
 before relying on any fitted parameter.
 
-Two names are in play, which is worth stating plainly:
-
-| Identifier | Value |
-| --- | --- |
-| Package (import and PyPI) | `pygeostats` |
-| Git repository | `DiogoRibeiro7/pyspatialstats` |
-
-The project was originally called `pyspatialstats`, but that name belongs to
-[an existing, actively maintained package](https://github.com/jasperroebroek/pyspatialstats)
-on PyPI by Jasper Roebroek. This project is unrelated to it. The repository
-keeps its old name; the package does not.
+This project was previously called `pyspatialstats`, and was renamed because
+that name belongs to [an existing, actively maintained package](https://github.com/jasperroebroek/pyspatialstats)
+on PyPI by Jasper Roebroek. The two are unrelated.
 
 ## Features
 
@@ -55,8 +47,8 @@ Not on PyPI yet, so install from source. A Rust toolchain is required, since
 the core extension is compiled:
 
 ```bash
-git clone https://github.com/DiogoRibeiro7/pyspatialstats.git
-cd pyspatialstats
+git clone https://github.com/DiogoRibeiro7/pygeostats.git
+cd pygeostats
 pip install .
 ```
 

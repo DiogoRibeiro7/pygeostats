@@ -13,7 +13,7 @@ name: Release
 #
 #   PyPI project name : pygeostats
 #   Owner             : DiogoRibeiro7
-#   Repository name   : pyspatialstats      <- the repo keeps its old name
+#   Repository name   : pygeostats
 #   Workflow name     : release.yml
 #   Environment name  : pypi
 #

@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 description = "Rust core for the pygeostats Python package: variogram estimation and fitting, kriging, and distance kernels"
 license = "MIT"
-repository = "https://github.com/DiogoRibeiro7/pyspatialstats"
+repository = "https://github.com/DiogoRibeiro7/pygeostats"
 readme = "README.md"
 
 [lib]

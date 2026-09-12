@@ -2,12 +2,12 @@ name: CI
 
 on:
   push:
-    branches: [main, develop]
+    branches: [main]
   pull_request:
-    # The default branch is develop. The previous workflow only ran on pull
-    # requests targeting main, which does not exist, so no pull request had
-    # ever been checked.
-    branches: [main, develop]
+    # The previous workflow triggered on pull requests into main at a time when
+    # the default branch was develop and no main branch existed, so no pull
+    # request was ever checked. develop has since been renamed to main.
+    branches: [main]
   workflow_dispatch:
 
 permissions:

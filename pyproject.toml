@@ -38,8 +38,8 @@ dependencies = [
 ]
 
 [project.urls]
-Repository = "https://github.com/DiogoRibeiro7/pyspatialstats"
-Issues = "https://github.com/DiogoRibeiro7/pyspatialstats/issues"
+Repository = "https://github.com/DiogoRibeiro7/pygeostats"
+Issues = "https://github.com/DiogoRibeiro7/pygeostats/issues"
 
 [project.optional-dependencies]
 dev = [

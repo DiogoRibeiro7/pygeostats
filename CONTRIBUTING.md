@@ -14,46 +14,29 @@ Thanks for helping improve **PySpatialStats**. This guide explains how to set up
 
 **Requirements**
 
-- Python **3.9–3.12**
+- Python **3.9 or newer** (CI covers 3.9 through 3.13)
 - Rust **stable** (with `cargo`, `rustfmt`, `clippy`)
-- BLAS/LAPACK (OpenBLAS recommended)
-- Git, Make (optional for docs)
+- Git
 
-**Recommended**
+No BLAS or LAPACK is required: `ndarray` and `nalgebra` are used in their
+pure-Rust configurations.
 
-- `poetry` for Python dependency management
-- `pre-commit` for local lint hooks
-
-### Quickstart (preferred: Poetry + maturin)
+### Quickstart
 
 ```bash
-# Clone
-git clone https://github.com/DiogoRibeiro7/pyspatialstats.git
+git clone https://github.com/DiogoRibeiro7/pygeostats.git
 cd pygeostats
 
-# Install Poetry (if needed)
-curl -sSL https://install.python-poetry.org | python3 -
-
-# Create env and install deps (includes dev extras)
-poetry install --with dev
-
-# Build Rust extension in dev mode
-poetry run pip install maturin
-poetry run maturin develop --extras dev
-
-# Install pre-commit hooks
-poetry run pre-commit install
-```
-
-### Alternative (pip + maturin)
-
-```bash
 python -m venv .venv
 source .venv/bin/activate  # Windows: .venv\Scripts\activate
-pip install --upgrade pip maturin
-maturin develop --extras dev
-pre-commit install
+
+# maturin is the build backend, so pip compiles the Rust extension for you
+pip install --upgrade pip
+pip install -e ".[dev,test]"
 ```
+
+With the virtualenv active, `maturin develop --extras dev` rebuilds the
+extension in place. It requires an active virtualenv and fails without one.
 
 --------------------------------------------------------------------------------
 
@@ -149,7 +132,7 @@ State CPU, Python, Rust, BLAS, and OS.
 
 ## Git & PR Process
 
-- Work from a feature branch off `develop`.
+- Work from a feature branch off `main`.
 - **Conventional Commits** for messages (e.g., `feat:`, `fix:`, `perf:`, `docs:`).
 - Small, focused PRs. Update tests and docs alongside code.
 - PR description should include: motivation, approach, validation (tests/bench/plots), and risk/limitations.
@@ -157,8 +140,11 @@ State CPU, Python, Rust, BLAS, and OS.
 
 **Branch protection**
 
-- `main`: protected, release tags only.
-- `develop`: default for PRs; merges via squash or rebase.
+- `main`: the default branch and the target for pull requests; merges via
+  squash or rebase. Releases are tagged from it.
+
+The repository previously used `develop` as its default branch. It has been
+renamed to `main`, and there is no longer a separate integration branch.
 
 --------------------------------------------------------------------------------
 

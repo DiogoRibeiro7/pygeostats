@@ -64,7 +64,7 @@ For development or the latest features:
    source $HOME/.cargo/env
 
    # Clone and install
-   git clone https://github.com/DiogoRibeiro7/pyspatialstats.git
+   git clone https://github.com/DiogoRibeiro7/pygeostats.git
    cd pygeostats
    
    # Install maturin
@@ -123,4 +123,4 @@ If you encounter issues on M1/M2 Macs:
    export MACOSX_DEPLOYMENT_TARGET=11.0
    pip install pygeostats
 
-For more help, please open an issue on our `GitHub repository <https://github.com/DiogoRibeiro7/pyspatialstats>`_.
+For more help, please open an issue on our `GitHub repository <https://github.com/DiogoRibeiro7/pygeostats>`_.
