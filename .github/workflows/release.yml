@@ -1,66 +1,180 @@
 name: Release
 
+# Publishing uses PyPI Trusted Publishing (OpenID Connect). There is no API
+# token anywhere in this workflow and no PYPI_API_TOKEN secret is needed:
+# GitHub mints a short-lived OIDC token for the publish job, and PyPI exchanges
+# it for an equally short-lived upload token after checking that the claims
+# match the publisher configured on the project.
+#
+# The PyPI side must be configured once, under
+# https://pypi.org/manage/project/pygeostats/settings/publishing/ (or, before
+# the first release, as a "pending publisher" at
+# https://pypi.org/manage/account/publishing/), with exactly:
+#
+#   PyPI project name : pygeostats
+#   Owner             : DiogoRibeiro7
+#   Repository name   : pyspatialstats      <- the repo keeps its old name
+#   Workflow name     : release.yml
+#   Environment name  : pypi
+#
+# The environment name is not optional here: this workflow sets
+# `environment: pypi` on the publish job, and PyPI checks that claim.
+
 on:
   release:
     types: [published]
+  workflow_dispatch:
+    inputs:
+      publish_to_testpypi:
+        description: "Also publish the built artifacts to TestPyPI"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  CARGO_TERM_COLOR: always
 
 jobs:
-  build:
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
-        python-version: ["3.9", "3.10", "3.11", "3.12"]
-
-    steps:
-    - uses: actions/checkout@v4
-
-    - name: Set up Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: ${{ matrix.python-version }}
-
-    - name: Set up Rust
-      uses: actions-rs/toolchain@v1
-      with:
-        toolchain: stable
-        override: true
-
-    - name: Install system dependencies (Ubuntu)
-      if: matrix.os == 'ubuntu-latest'
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y libopenblas-dev liblapack-dev
-
-    - name: Install system dependencies (macOS)
-      if: matrix.os == 'macos-latest'
-      run: |
-        brew install openblas lapack
-
-    - name: Build wheels
-      uses: PyO3/maturin-action@v1
-      with:
-        command: build
-        args: --release --strip --interpreter python${{ matrix.python-version }}
-
-    - name: Upload wheels
-      uses: actions/upload-artifact@v3
-      with:
-        name: wheels
-        path: target/wheels
-
-  publish:
+  # Publishing is irreversible: a release can be yanked but never replaced.
+  # The suite runs again here rather than trusting that CI ran on the commit
+  # the tag points at.
+  test:
+    name: Test before release
     runs-on: ubuntu-latest
-    needs: build
-    if: github.event_name == 'release'
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Install and test
+        run: |
+          python -m pip install --upgrade pip
+          pip install ".[test]"
+          pytest tests/ -q
+
+  wheels:
+    name: "Wheel: ${{ matrix.target }} on ${{ matrix.runner }}"
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        # One wheel per platform, not per platform per Python version. The
+        # crate builds against the stable ABI (abi3-py39), so a single
+        # cp39-abi3 wheel covers Python 3.9 through 3.14 and later. This
+        # replaces the previous 3-OS x 4-version matrix of twelve builds, and
+        # means a new Python release needs no rebuild at all.
+        include:
+          - { runner: ubuntu-latest, target: x86_64, manylinux: auto }
+          - { runner: ubuntu-24.04-arm, target: aarch64, manylinux: auto }
+          - { runner: macos-13, target: x86_64 }
+          - { runner: macos-latest, target: aarch64 }
+          - { runner: windows-latest, target: x64 }
 
     steps:
-    - uses: actions/download-artifact@v3
-      with:
-        name: wheels
-        path: dist
+      - uses: actions/checkout@v5
 
-    - name: Publish to PyPI
-      uses: pypa/gh-action-pypi-publish@release/v1
-      with:
-        password: ${{ secrets.PYPI_API_TOKEN }}
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Build wheel
+        uses: PyO3/maturin-action@v1
+        with:
+          target: ${{ matrix.target }}
+          args: --release --out dist --strip
+          manylinux: ${{ matrix.manylinux }}
+          sccache: "true"
+
+      - name: Check wheel metadata
+        shell: bash
+        run: |
+          python -m pip install --upgrade pip twine
+          twine check dist/*
+          ls -la dist/
+
+      - uses: actions/upload-artifact@v4
+        with:
+          # Artifact names must be unique per job under upload-artifact v4.
+          # The previous workflow uploaded every job to the name "wheels",
+          # which v4 rejects outright.
+          name: dist-wheel-${{ matrix.runner }}-${{ matrix.target }}
+          path: dist/*.whl
+          if-no-files-found: error
+
+  sdist:
+    name: Source distribution
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Build sdist
+        uses: PyO3/maturin-action@v1
+        with:
+          command: sdist
+          args: --out dist
+
+      - name: Check sdist metadata
+        run: |
+          python -m pip install --upgrade pip twine
+          twine check dist/*
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist-sdist
+          path: dist/*.tar.gz
+          if-no-files-found: error
+
+  publish-testpypi:
+    name: Publish to TestPyPI
+    if: github.event_name == 'workflow_dispatch' && inputs.publish_to_testpypi
+    needs: [test, wheels, sdist]
+    runs-on: ubuntu-latest
+    environment:
+      name: testpypi
+      url: https://test.pypi.org/p/pygeostats
+    permissions:
+      id-token: write # required to mint the OIDC token; nothing else is needed
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: dist-*
+          merge-multiple: true
+          path: dist
+
+      - uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          repository-url: https://test.pypi.org/legacy/
+
+  publish-pypi:
+    name: Publish to PyPI
+    if: github.event_name == 'release'
+    needs: [test, wheels, sdist]
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/p/pygeostats
+    permissions:
+      id-token: write # required to mint the OIDC token; nothing else is needed
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: dist-*
+          merge-multiple: true
+          path: dist
+
+      - name: List what is about to be published
+        run: ls -la dist/
+
+      - uses: pypa/gh-action-pypi-publish@release/v1
