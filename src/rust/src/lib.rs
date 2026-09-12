@@ -23,7 +23,7 @@ use variogram::{
 
 /// High-performance spatial statistics library
 #[pymodule]
-fn _core(_py: Python, m: &PyModule) -> PyResult<()> {
+fn _core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     // Distance functions
     m.add_function(wrap_pyfunction!(euclidean_distances, m)?)?;
     m.add_function(wrap_pyfunction!(haversine_distances, m)?)?;

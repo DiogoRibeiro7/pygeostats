@@ -17,7 +17,7 @@ pub fn ordinary_kriging_predict<'py>(
     pred_coords: PyReadonlyArray2<f64>,
     variogram_params: PyReadonlyArray1<f64>,
     model_type: &str,
-) -> PyResult<&'py PyArray1<f64>> {
+) -> PyResult<Bound<'py, PyArray1<f64>>> {
     let _ = known_coords;
     let _ = model_type;
     let known_coords = known_coords.as_array();
@@ -38,7 +38,7 @@ pub fn ordinary_kriging_predict<'py>(
     let cov = build_covariance_matrix(&known_coords, &params, model_type);
     let mut system = DMatrix::<f64>::zeros(n_known + 1, n_known + 1);
 
-    system.slice_mut((0, 0), (n_known, n_known)).copy_from(&cov);
+    system.view_mut((0, 0), (n_known, n_known)).copy_from(&cov);
     for i in 0..n_known {
         system[(i, n_known)] = 1.0;
         system[(n_known, i)] = 1.0;
@@ -78,7 +78,7 @@ pub fn ordinary_kriging_predict_neighbors<'py>(
     variogram_params: PyReadonlyArray1<f64>,
     neighbors: PyReadonlyArray2<i64>,
     model_type: &str,
-) -> PyResult<&'py PyArray1<f64>> {
+) -> PyResult<Bound<'py, PyArray1<f64>>> {
     let known_coords = known_coords.as_array();
     let known_values = known_values.as_array();
     let pred_coords = pred_coords.as_array();
@@ -175,7 +175,7 @@ pub fn simple_kriging_predict<'py>(
     variogram_params: PyReadonlyArray1<f64>,
     model_type: &str,
     known_mean: f64,
-) -> PyResult<&'py PyArray1<f64>> {
+) -> PyResult<Bound<'py, PyArray1<f64>>> {
     let known_coords = known_coords.as_array();
     let known_values = known_values.as_array();
     let pred_coords = pred_coords.as_array();
@@ -226,7 +226,7 @@ pub fn universal_kriging_predict<'py>(
     variogram_params: PyReadonlyArray1<f64>,
     model_type: &str,
     trend: &str,
-) -> PyResult<&'py PyArray1<f64>> {
+) -> PyResult<Bound<'py, PyArray1<f64>>> {
     let known_coords = known_coords.as_array();
     let known_values = known_values.as_array();
     let pred_coords = pred_coords.as_array();
@@ -261,12 +261,12 @@ pub fn universal_kriging_predict<'py>(
     let design = build_design_matrix(trend_type, &known_coords);
 
     let mut system = DMatrix::<f64>::zeros(n_known + basis_size, n_known + basis_size);
-    system.slice_mut((0, 0), (n_known, n_known)).copy_from(&cov);
+    system.view_mut((0, 0), (n_known, n_known)).copy_from(&cov);
     system
-        .slice_mut((0, n_known), (n_known, basis_size))
+        .view_mut((0, n_known), (n_known, basis_size))
         .copy_from(&design);
     system
-        .slice_mut((n_known, 0), (basis_size, n_known))
+        .view_mut((n_known, 0), (basis_size, n_known))
         .copy_from(&design.transpose());
 
     let lu = system.lu();
@@ -307,7 +307,7 @@ pub fn kriging_variance<'py>(
     pred_coords: PyReadonlyArray2<f64>,
     variogram_params: PyReadonlyArray1<f64>,
     model_type: &str,
-) -> PyResult<&'py PyArray1<f64>> {
+) -> PyResult<Bound<'py, PyArray1<f64>>> {
     let known_coords = known_coords.as_array();
     let pred_coords = pred_coords.as_array();
     let params = variogram_params.as_array();
@@ -330,7 +330,7 @@ pub fn kriging_variance<'py>(
 
     let cov = build_covariance_matrix(&known_coords, &params, model_type);
     let mut system = DMatrix::<f64>::zeros(n_known + 1, n_known + 1);
-    system.slice_mut((0, 0), (n_known, n_known)).copy_from(&cov);
+    system.view_mut((0, 0), (n_known, n_known)).copy_from(&cov);
     for i in 0..n_known {
         system[(i, n_known)] = 1.0;
         system[(n_known, i)] = 1.0;

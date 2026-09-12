@@ -18,7 +18,7 @@ pub fn anisotropic_kriging_predict<'py>(
     pred_coords: PyReadonlyArray2<f64>,
     variogram_params: PyReadonlyArray1<f64>,
     model_type: &str,
-) -> PyResult<&'py PyArray1<f64>> {
+) -> PyResult<Bound<'py, PyArray1<f64>>> {
     let known_coords = known_coords.as_array();
     let known_values = known_values.as_array();
     let pred_coords = pred_coords.as_array();
@@ -83,7 +83,7 @@ pub fn anisotropic_kriging_predict<'py>(
 
     // Set up kriging system with unbiasedness constraint
     let mut system_matrix = DMatrix::<f64>::zeros(n_known + 1, n_known + 1);
-    system_matrix.slice_mut((0, 0), (n_known, n_known)).copy_from(&cov_matrix);
+    system_matrix.view_mut((0, 0), (n_known, n_known)).copy_from(&cov_matrix);
     
     // Add unbiasedness constraint
     for i in 0..n_known {
@@ -140,7 +140,7 @@ pub fn anisotropic_kriging_variance<'py>(
     pred_coords: PyReadonlyArray2<f64>,
     variogram_params: PyReadonlyArray1<f64>,
     model_type: &str,
-) -> PyResult<&'py PyArray1<f64>> {
+) -> PyResult<Bound<'py, PyArray1<f64>>> {
     let known_coords = known_coords.as_array();
     let pred_coords = pred_coords.as_array();
     let params = variogram_params.as_array();
@@ -202,7 +202,7 @@ pub fn anisotropic_kriging_variance<'py>(
 
     // Set up kriging system with unbiasedness constraint
     let mut system_matrix = DMatrix::<f64>::zeros(n_known + 1, n_known + 1);
-    system_matrix.slice_mut((0, 0), (n_known, n_known)).copy_from(&cov_matrix);
+    system_matrix.view_mut((0, 0), (n_known, n_known)).copy_from(&cov_matrix);
     
     for i in 0..n_known {
         system_matrix[(i, n_known)] = 1.0;
@@ -262,7 +262,7 @@ pub fn anisotropic_kriging_predict_neighbors<'py>(
     variogram_params: PyReadonlyArray1<f64>,
     neighbors: PyReadonlyArray2<i64>,
     model_type: &str,
-) -> PyResult<&'py PyArray1<f64>> {
+) -> PyResult<Bound<'py, PyArray1<f64>>> {
     let known_coords = known_coords.as_array();
     let known_values = known_values.as_array();
     let pred_coords = pred_coords.as_array();
@@ -515,7 +515,7 @@ pub fn anisotropic_distance_matrix<'py>(
     range_major: f64,
     range_minor: f64,
     rotation_angle: f64,
-) -> PyResult<&'py PyArray1<f64>> {
+) -> PyResult<Bound<'py, PyArray1<f64>>> {
     let coords1 = coords1.as_array();
     let coords2 = coords2.as_array();
 

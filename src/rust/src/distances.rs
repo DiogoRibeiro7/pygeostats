@@ -9,7 +9,7 @@ use rayon::prelude::*;
 pub fn euclidean_distances<'py>(
     py: Python<'py>,
     coords: PyReadonlyArray2<f64>,
-) -> PyResult<&'py PyArray2<f64>> {
+) -> PyResult<Bound<'py, PyArray2<f64>>> {
     let coords = coords.as_array();
     let n = coords.nrows();
     let mut distances = Array2::<f64>::zeros((n, n));
@@ -38,7 +38,7 @@ pub fn haversine_distances<'py>(
     py: Python<'py>,
     coords: PyReadonlyArray2<f64>,
     radius: Option<f64>,
-) -> PyResult<&'py PyArray2<f64>> {
+) -> PyResult<Bound<'py, PyArray2<f64>>> {
     let coords = coords.as_array();
     let n = coords.nrows();
     let r = radius.unwrap_or(6371.0); // Earth radius in km

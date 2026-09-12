@@ -15,8 +15,8 @@ parallel = []
 sparse = []
 
 [dependencies]
-pyo3 = { version = "0.20", features = ["extension-module"] }
-numpy = "0.20"
+pyo3 = { version = "0.29", features = ["extension-module"] }
+numpy = "0.29"
 ndarray = { version = "0.15", features = ["rayon"] }
 rayon = "1.7"
 nalgebra = "0.32"

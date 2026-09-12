@@ -57,7 +57,7 @@ struct ConstraintManager {
 
 const MAX_CONSTRAINT_MESSAGES: usize = 8;
 
-#[pyclass]
+#[pyclass(from_py_object)]
 #[derive(Clone)]
 pub struct StreamingVariogramAccumulator {
     #[pyo3(get)]
@@ -172,7 +172,7 @@ impl StreamingVariogramAccumulator {
     pub fn finalize_dense<'py>(
         &self,
         py: Python<'py>,
-    ) -> PyResult<(&'py PyArray1<f64>, &'py PyArray1<f64>, &'py PyArray1<f64>)> {
+    ) -> PyResult<(Bound<'py, PyArray1<f64>>, Bound<'py, PyArray1<f64>>, Bound<'py, PyArray1<f64>>)> {
         let (centers, gamma, weights) = self.dense_components();
         Ok((
             Array1::from_vec(centers).into_pyarray(py),
@@ -185,10 +185,10 @@ impl StreamingVariogramAccumulator {
         &self,
         py: Python<'py>,
     ) -> PyResult<(
-        &'py PyArray1<usize>,
-        &'py PyArray1<f64>,
-        &'py PyArray1<f64>,
-        &'py PyArray1<f64>,
+        Bound<'py, PyArray1<usize>>,
+        Bound<'py, PyArray1<f64>>,
+        Bound<'py, PyArray1<f64>>,
+        Bound<'py, PyArray1<f64>>,
     )> {
         let (indices, centers, gamma, weights) = self.sparse_components();
         Ok((
@@ -504,7 +504,7 @@ pub fn empirical_variogram<'py>(
     coords: PyReadonlyArray2<f64>,
     values: PyReadonlyArray1<f64>,
     bins: PyReadonlyArray1<f64>,
-) -> PyResult<(&'py PyArray1<f64>, &'py PyArray1<f64>, &'py PyArray1<i32>)> {
+) -> PyResult<(Bound<'py, PyArray1<f64>>, Bound<'py, PyArray1<f64>>, Bound<'py, PyArray1<i32>>)> {
     let coords = coords.as_array();
     let values = values.as_array();
     let bins = bins.as_array();
@@ -765,7 +765,7 @@ pub fn streaming_variogram<'py>(
     bins: PyReadonlyArray1<f64>,
     chunk_size: usize,
     return_sparse: bool,
-) -> PyResult<PyObject> {
+) -> PyResult<Py<PyAny>> {
     if chunk_size == 0 {
         return Err(PyValueError::new_err(
             "chunk_size must be greater than zero",
@@ -784,13 +784,13 @@ pub fn streaming_variogram<'py>(
         let (centers, gamma, counts) = accumulator.dense_components();
         let tuple = PyTuple::new(
             py,
-            &[
-                Array1::from_vec(centers).into_pyarray(py).to_object(py),
-                Array1::from_vec(gamma).into_pyarray(py).to_object(py),
-                Array1::from_vec(counts).into_pyarray(py).to_object(py),
+            [
+                Array1::from_vec(centers).into_pyarray(py),
+                Array1::from_vec(gamma).into_pyarray(py),
+                Array1::from_vec(counts).into_pyarray(py),
             ],
-        );
-        return Ok(tuple.into());
+        )?;
+        return Ok(tuple.into_any().unbind());
     }
     let chunk = chunk_size.min(n).max(1);
     let mut start = 0usize;
@@ -837,18 +837,18 @@ pub fn streaming_variogram<'py>(
             Array1::from_vec(accumulator.bin_centers.clone()).into_pyarray(py),
         )?;
         dict.set_item("total_weight", accumulator.total_weight())?;
-        Ok(dict.into())
+        Ok(dict.into_any().unbind())
     } else {
         let (centers, gamma, counts) = accumulator.dense_components();
         let tuple = PyTuple::new(
             py,
-            &[
-                Array1::from_vec(centers).into_pyarray(py).to_object(py),
-                Array1::from_vec(gamma).into_pyarray(py).to_object(py),
-                Array1::from_vec(counts).into_pyarray(py).to_object(py),
+            [
+                Array1::from_vec(centers).into_pyarray(py),
+                Array1::from_vec(gamma).into_pyarray(py),
+                Array1::from_vec(counts).into_pyarray(py),
             ],
-        );
-        Ok(tuple.into())
+        )?;
+        Ok(tuple.into_any().unbind())
     }
 }
 #[derive(Clone)]
