@@ -8,12 +8,12 @@ from pathlib import Path
 
 import numpy as np
 
-from pyspatialstats.kriging import (
+from pygeostats.kriging import (
     ApproximateNeighborIndex,
     OrdinaryKriging,
     ParallelKrigingExecutor,
 )
-from pyspatialstats.variogram import Variogram
+from pygeostats.variogram import Variogram
 
 
 def synthetic_data(n_known: int, n_pred: int, dims: int = 2):

@@ -3,7 +3,7 @@ requires = ["maturin>=1.0,<2.0"]
 build-backend = "maturin"
 
 [project]
-name = "pyspatialstats"
+name = "pygeostats"
 version = "0.1.0"
 description = "High-performance spatial statistics for Python"
 authors = [
@@ -53,7 +53,7 @@ test = [
 
 [tool.maturin]
 python-source = "src/python"
-module-name = "pyspatialstats._core"
+module-name = "pygeostats._core"
 
 [tool.black]
 line-length = 88

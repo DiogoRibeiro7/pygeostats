@@ -2,7 +2,7 @@
 
 import numpy as np
 import pytest
-from pyspatialstats.variogram import EmpiricalVariogram, Variogram
+from pygeostats.variogram import EmpiricalVariogram, Variogram
 
 
 class TestEmpiricalVariogram:

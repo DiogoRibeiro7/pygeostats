@@ -112,10 +112,10 @@ Create a comprehensive, high-performance spatial statistics library for Python w
 ### Package Structure
 
 ```
-pyspatialstats/
+pygeostats/
 ├── src/
 │   ├── python/
-│   │   └── pyspatialstats/
+│   │   └── pygeostats/
 │   │       ├── __init__.py
 │   │       ├── variogram/
 │   │       ├── kriging/

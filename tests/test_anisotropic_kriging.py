@@ -5,9 +5,9 @@ import numpy as np
 import pytest
 from sklearn.metrics import r2_score, mean_squared_error
 
-from pyspatialstats.variogram import DirectionalVariogram, Variogram
-from pyspatialstats.kriging import AnisotropicKriging, OrdinaryKriging
-from pyspatialstats.kriging.anisotropic import create_anisotropic_variogram_from_directional
+from pygeostats.variogram import DirectionalVariogram, Variogram
+from pygeostats.kriging import AnisotropicKriging, OrdinaryKriging
+from pygeostats.kriging.anisotropic import create_anisotropic_variogram_from_directional
 
 
 class TestAnisotropicKriging:

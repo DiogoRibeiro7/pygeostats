@@ -21,8 +21,8 @@ High-performance spatial statistics library for Python with Rust-accelerated cor
 
 ```python
 import numpy as np
-from pyspatialstats.variogram import EmpiricalVariogram, Variogram
-from pyspatialstats.kriging import OrdinaryKriging
+from pygeostats.variogram import EmpiricalVariogram, Variogram
+from pygeostats.kriging import OrdinaryKriging
 
 # Generate sample data
 coords = np.random.uniform(0, 10, size=(100, 2))
@@ -47,7 +47,7 @@ predictions = kriging.predict(coords)
 You can install PySpatialStats via pip:
 
 ```bash
-pip install pyspatialstats
+pip install pygeostats
 ``` 
 
 ## Documentation

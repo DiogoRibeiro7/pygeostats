@@ -2,7 +2,7 @@
 
 import numpy as np
 
-from pyspatialstats.spatial_autocorrelation import (
+from pygeostats.spatial_autocorrelation import (
     gearys_c,
     global_getis_ord_g,
     local_getis_ord_g,

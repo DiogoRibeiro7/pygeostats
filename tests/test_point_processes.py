@@ -2,7 +2,7 @@
 
 import numpy as np
 
-from pyspatialstats.point_patterns import (
+from pygeostats.point_patterns import (
     simulate_cox_process,
     simulate_marked_poisson_process,
     simulate_poisson_process,

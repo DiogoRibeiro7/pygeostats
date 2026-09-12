@@ -9,7 +9,7 @@ from typing import Callable, Iterable, List, Tuple
 
 import numpy as np
 
-from pyspatialstats import _core
+from pygeostats import _core
 
 
 @dataclass

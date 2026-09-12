@@ -42,8 +42,8 @@ Quick Example
 .. code-block:: python
 
    import numpy as np
-   from pyspatialstats.variogram import EmpiricalVariogram, Variogram
-   from pyspatialstats.kriging import OrdinaryKriging
+   from pygeostats.variogram import EmpiricalVariogram, Variogram
+   from pygeostats.kriging import OrdinaryKriging
 
    # Generate sample data
    coords = np.random.uniform(0, 10, size=(100, 2))
@@ -72,14 +72,14 @@ Install from PyPI:
 
 .. code-block:: bash
 
-   pip install pyspatialstats
+   pip install pygeostats
 
 Or install from source:
 
 .. code-block:: bash
 
    git clone https://github.com/username/pyspatialstats.git
-   cd pyspatialstats
+   cd pygeostats
    maturin develop --extras dev
 
 Contributing

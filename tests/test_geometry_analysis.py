@@ -1,7 +1,7 @@
 """Tests for spatial geometry diagnostics.
 
 These assertions previously ran at import time inside
-``pyspatialstats.variogram.geometry_analysis`` under ``if __debug__:``, which
+``pygeostats.variogram.geometry_analysis`` under ``if __debug__:``, which
 made the whole package unimportable when they failed -- and they did fail.
 They are real behavioural expectations, so they belong here.
 """
@@ -9,7 +9,7 @@ They are real behavioural expectations, so they belong here.
 import numpy as np
 import pytest
 
-from pyspatialstats.variogram.geometry_analysis import SpatialGeometryAnalyzer
+from pygeostats.variogram.geometry_analysis import SpatialGeometryAnalyzer
 
 
 REGULAR_GRID = np.array(

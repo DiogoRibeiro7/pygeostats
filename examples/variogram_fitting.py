@@ -3,7 +3,7 @@
 
 import numpy as np
 import matplotlib.pyplot as plt
-from pyspatialstats.variogram import EmpiricalVariogram, Variogram
+from pygeostats.variogram import EmpiricalVariogram, Variogram
 
 def generate_data_with_known_variogram(n_samples=100, nugget=0.1, sill=1.0, range_param=2.0):
     """Generate data with a known variogram structure."""

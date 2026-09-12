@@ -3,9 +3,9 @@
 import numpy as np
 import pytest
 
-pytest.importorskip("pyspatialstats._core", reason="requires compiled Rust extension")
+pytest.importorskip("pygeostats._core", reason="requires compiled Rust extension")
 
-from pyspatialstats.variogram.directional import DirectionalVariogram
+from pygeostats.variogram.directional import DirectionalVariogram
 from tests.data_generation import VariogramParameters, generate_anisotropic_field
 
 

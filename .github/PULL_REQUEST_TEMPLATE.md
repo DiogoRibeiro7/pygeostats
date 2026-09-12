@@ -46,7 +46,7 @@
 <_comment> Optional: figures that help reviewers understand the change. </_comment><h2 id="checklist">Checklist</h2><ul>
   <li>[ ] Code is typed (public APIs) and documented</li>
   <li>[ ] <code>black</code> / <code>ruff</code> pass locally</li>
-  <li>[ ] <code>mypy</code> passes for <code>src/python/pyspatialstats/</code></li>
+  <li>[ ] <code>mypy</code> passes for <code>src/python/pygeostats/</code></li>
   <li>[ ] <code>cargo fmt</code> and <code>cargo clippy -D warnings</code> pass</li>
   <li>[ ] Tests added/updated and <code>pytest -v</code> is green</li>
   <li>[ ] Coverage not reduced meaningfully</li>

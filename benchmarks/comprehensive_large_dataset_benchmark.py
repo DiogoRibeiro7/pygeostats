@@ -14,25 +14,25 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 
-from pyspatialstats.variogram import EmpiricalVariogram, Variogram
-from pyspatialstats.variogram.streaming import (
+from pygeostats.variogram import EmpiricalVariogram, Variogram
+from pygeostats.variogram.streaming import (
     StreamingEmpiricalVariogram,
     streaming_variogram,
 )
-from pyspatialstats.kriging import OrdinaryKriging
-from pyspatialstats.kriging.neighbor_search import (
+from pygeostats.kriging import OrdinaryKriging
+from pygeostats.kriging.neighbor_search import (
     ApproximateNeighborIndex,
     LocalKrigingPredictor,
 )
-from pyspatialstats.kriging.executor import ParallelKrigingExecutor
-from pyspatialstats.optimization.memory import (
+from pygeostats.kriging.executor import ParallelKrigingExecutor
+from pygeostats.optimization.memory import (
     MemoryManager,
     SparseDistanceMatrix,
     MemoryEfficientKriging,
     estimate_kriging_memory,
     memory_profile,
 )
-from pyspatialstats.acceleration.gpu import get_gpu_accelerator, is_gpu_available
+from pygeostats.acceleration.gpu import get_gpu_accelerator, is_gpu_available
 
 
 class LargeDatasetBenchmark:
@@ -623,7 +623,7 @@ class LargeDatasetBenchmark:
 
     def _test_chunked_processing_memory(self, coords, values):
         """Test chunked processing memory efficiency."""
-        from pyspatialstats.optimization.memory import ChunkedArrayProcessor
+        from pygeostats.optimization.memory import ChunkedArrayProcessor
 
         processor = ChunkedArrayProcessor(max_memory_gb=2.0)
 
@@ -642,7 +642,7 @@ class LargeDatasetBenchmark:
 
     def _test_memory_mapped_arrays(self, coords, values):
         """Test memory-mapped array efficiency."""
-        from pyspatialstats.optimization.memory import create_memory_mapped_array
+        from pygeostats.optimization.memory import create_memory_mapped_array
 
         # Create temporary memory-mapped file
         temp_file = self.output_dir / f"temp_coords_{len(coords)}.dat"

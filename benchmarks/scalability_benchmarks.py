@@ -12,13 +12,13 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 
-from pyspatialstats.variogram import EmpiricalVariogram, Variogram, DirectionalVariogram
-from pyspatialstats.kriging import OrdinaryKriging, AnisotropicKriging
-from pyspatialstats.optimization.memory import (
+from pygeostats.variogram import EmpiricalVariogram, Variogram, DirectionalVariogram
+from pygeostats.kriging import OrdinaryKriging, AnisotropicKriging
+from pygeostats.optimization.memory import (
     MemoryManager, SparseDistanceMatrix, MemoryEfficientKriging,
     estimate_kriging_memory, memory_profile
 )
-from pyspatialstats.acceleration.gpu import get_gpu_accelerator, is_gpu_available
+from pygeostats.acceleration.gpu import get_gpu_accelerator, is_gpu_available
 
 
 class ScalabilityBenchmark:
@@ -174,7 +174,7 @@ class ScalabilityBenchmark:
             
             if n_samples > 10000:
                 try:
-                    from pyspatialstats.variogram import streaming_variogram
+                    from pygeostats.variogram import streaming_variogram
                     
                     start_time = time.time()
                     bin_edges = np.linspace(0, max_distance, 21)
@@ -299,7 +299,7 @@ class ScalabilityBenchmark:
     
     def _test_neighbor_based_kriging(self, variogram, coords, values, pred_coords):
         """Test neighbor-based kriging approach."""
-        from pyspatialstats.kriging import OrdinaryKriging
+        from pygeostats.kriging import OrdinaryKriging
         
         kriging = OrdinaryKriging(variogram)
         kriging.fit(coords, values)
@@ -521,7 +521,7 @@ class ScalabilityBenchmark:
             
             # Memory-mapped arrays
             try:
-                from pyspatialstats.optimization.memory import create_memory_mapped_array
+                from pygeostats.optimization.memory import create_memory_mapped_array
                 
                 memmap_file = self.output_dir / f"temp_coords_{n_samples}.dat"
                 memory_before = self.memory_manager.get_memory_info()

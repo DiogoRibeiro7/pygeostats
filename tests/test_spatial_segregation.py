@@ -2,7 +2,7 @@
 
 import numpy as np
 
-from pyspatialstats.point_patterns import compute_spatial_segregation_indices
+from pygeostats.point_patterns import compute_spatial_segregation_indices
 
 
 def test_entropy_segregation_higher_for_separated_pattern() -> None:

@@ -5,12 +5,12 @@ import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.metrics import r2_score, mean_squared_error
 
-from pyspatialstats.variogram import DirectionalVariogram, Variogram
-from pyspatialstats.kriging.anisotropic import (
+from pygeostats.variogram import DirectionalVariogram, Variogram
+from pygeostats.kriging.anisotropic import (
     AnisotropicKriging,
     create_anisotropic_variogram_from_directional,
 )
-from pyspatialstats.kriging import OrdinaryKriging  # For comparison
+from pygeostats.kriging import OrdinaryKriging  # For comparison
 
 
 def generate_anisotropic_data(
@@ -506,7 +506,7 @@ def example_4_real_world_workflow():
     ax1.set_ylabel("Y")
 
     # Add anisotropy ellipse
-    from pyspatialstats.kriging.anisotropic import plot_anisotropy_ellipse
+    from pygeostats.kriging.anisotropic import plot_anisotropy_ellipse
 
     plot_anisotropy_ellipse(best_kriging, center=(7.5, 7.5), scale=0.5, ax=ax1)
 

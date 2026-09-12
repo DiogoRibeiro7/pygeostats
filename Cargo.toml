@@ -1,10 +1,10 @@
 [package]
-name = "pyspatialstats"
+name = "pygeostats"
 version = "0.1.0"
 edition = "2021"
 
 [lib]
-name = "pyspatialstats"
+name = "pygeostats"
 crate-type = ["cdylib"]
 path = "src/rust/src/lib.rs"
 

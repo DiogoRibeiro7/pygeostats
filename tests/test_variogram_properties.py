@@ -6,8 +6,8 @@ import numpy as np
 import pytest
 from hypothesis import given, settings, strategies as st
 
-from pyspatialstats.variogram.empirical import EmpiricalVariogram
-from pyspatialstats.variogram.models import Variogram
+from pygeostats.variogram.empirical import EmpiricalVariogram
+from pygeostats.variogram.models import Variogram
 
 from .data_generation import VariogramParameters, generate_isotropic_field
 

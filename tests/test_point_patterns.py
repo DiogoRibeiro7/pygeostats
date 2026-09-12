@@ -2,7 +2,7 @@
 
 import numpy as np
 
-from pyspatialstats.point_patterns import (
+from pygeostats.point_patterns import (
     f_function,
     g_function,
     nearest_neighbor_distances,

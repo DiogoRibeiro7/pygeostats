@@ -3,8 +3,8 @@
 
 import numpy as np
 import matplotlib.pyplot as plt
-from pyspatialstats.variogram import EmpiricalVariogram, Variogram
-from pyspatialstats.kriging import OrdinaryKriging
+from pygeostats.variogram import EmpiricalVariogram, Variogram
+from pygeostats.kriging import OrdinaryKriging
 
 # Set random seed for reproducibility
 np.random.seed(42)

@@ -7,9 +7,9 @@ import pytest
 from numpy.testing import assert_allclose
 from sklearn.metrics import r2_score
 
-from pyspatialstats.variogram.empirical import EmpiricalVariogram
-from pyspatialstats.variogram.models import Variogram
-from pyspatialstats.kriging.ordinary import OrdinaryKriging
+from pygeostats.variogram.empirical import EmpiricalVariogram
+from pygeostats.variogram.models import Variogram
+from pygeostats.kriging.ordinary import OrdinaryKriging
 
 from .gstat_reference import ReferenceDataset, build_reference_datasets
 

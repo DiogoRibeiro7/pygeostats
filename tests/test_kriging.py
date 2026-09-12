@@ -3,12 +3,12 @@
 import numpy as np
 import pytest
 
-from pyspatialstats.kriging import (
+from pygeostats.kriging import (
     OrdinaryKriging,
     SimpleKriging,
     UniversalKriging,
 )
-from pyspatialstats.variogram import Variogram
+from pygeostats.variogram import Variogram
 
 
 def _covariance(distance: float, nugget: float, sill: float, range_: float, model: str) -> float:

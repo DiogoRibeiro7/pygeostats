@@ -24,8 +24,8 @@ Let's walk through each step:
    import numpy as np
    import pandas as pd
    import geopandas as gpd
-   from pyspatialstats.variogram import EmpiricalVariogram, Variogram
-   from pyspatialstats.kriging import OrdinaryKriging
+   from pygeostats.variogram import EmpiricalVariogram, Variogram
+   from pygeostats.kriging import OrdinaryKriging
 
    # Create sample data (or load your own)
    np.random.seed(42)

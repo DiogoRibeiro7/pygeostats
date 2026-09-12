@@ -1,7 +1,7 @@
 """Parameter-recovery tests for anisotropy initialization.
 
 These assertions previously ran at import time inside
-``pyspatialstats.variogram.initialization`` under ``if __debug__:``. A failure
+``pygeostats.variogram.initialization`` under ``if __debug__:``. A failure
 there made the entire package unimportable rather than reporting a failing
 test, so they have been moved into the suite.
 """
@@ -11,8 +11,8 @@ from typing import Dict
 import numpy as np
 import pytest
 
-from pyspatialstats.variogram.directional import DirectionalResult
-from pyspatialstats.variogram.initialization import (
+from pygeostats.variogram.directional import DirectionalResult
+from pygeostats.variogram.initialization import (
     InitializationEnsemble,
     RangeInitializer,
 )

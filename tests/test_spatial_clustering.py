@@ -2,7 +2,7 @@
 
 import numpy as np
 
-from pyspatialstats.point_patterns import (
+from pygeostats.point_patterns import (
     cluster_validation_metrics,
     getis_ord_gi_star,
     kernel_density_estimate,

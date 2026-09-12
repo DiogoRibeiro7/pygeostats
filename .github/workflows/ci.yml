@@ -75,13 +75,13 @@ jobs:
         ruff check src/python/
 
     - name: Type check
-      run: mypy src/python/pyspatialstats/
+      run: mypy src/python/pygeostats/
 
     - name: Test Rust code
       run: cargo test
 
     - name: Test Python code
-      run: pytest tests/ -v --cov=pyspatialstats --cov-report=xml
+      run: pytest tests/ -v --cov=pygeostats --cov-report=xml
 
     - name: Upload coverage
       uses: codecov/codecov-action@v3

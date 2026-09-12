@@ -29,7 +29,7 @@ Thanks for helping improve **PySpatialStats**. This guide explains how to set up
 ```bash
 # Clone
 git clone https://github.com/username/pyspatialstats.git
-cd pyspatialstats
+cd pygeostats
 
 # Install Poetry (if needed)
 curl -sSL https://install.python-poetry.org | python3 -
@@ -60,8 +60,8 @@ pre-commit install
 ## Project Layout (key paths)
 
 ```
-pyspatialstats/
-├─ src/python/pyspatialstats/   # Python API (variogram, kriging, etc.)
+pygeostats/
+├─ src/python/pygeostats/   # Python API (variogram, kriging, etc.)
 ├─ src/rust/                    # Rust core crates (if split)
 ├─ tests/                       # pytest suite
 ├─ examples/                    # scripts & notebooks
@@ -88,7 +88,7 @@ pyspatialstats/
 black src/python/ tests/
 ruff check src/python/ tests/
 ruff format src/python/ tests/     # if using ruff format
-mypy src/python/pyspatialstats/
+mypy src/python/pygeostats/
 ```
 
 **Mypy**: aim for `--strict` cleanliness in new/modified modules. If a narrow `# type: ignore` is needed, include a short justification.
@@ -113,7 +113,7 @@ We require tests for new features and bug fixes.
 **Run locally**
 
 ```bash
-pytest tests/ -v --cov=pyspatialstats --cov-report=term-missing
+pytest tests/ -v --cov=pygeostats --cov-report=term-missing
 ```
 
 --------------------------------------------------------------------------------

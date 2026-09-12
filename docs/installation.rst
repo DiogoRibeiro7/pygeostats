@@ -43,14 +43,14 @@ From PyPI (Recommended)
 
 .. code-block:: bash
 
-   pip install pyspatialstats
+   pip install pygeostats
 
 From Conda-Forge
 ~~~~~~~~~~~~~~~~~
 
 .. code-block:: bash
 
-   conda install -c conda-forge pyspatialstats
+   conda install -c conda-forge pygeostats
 
 From Source
 ~~~~~~~~~~~
@@ -65,7 +65,7 @@ For development or the latest features:
 
    # Clone and install
    git clone https://github.com/username/pyspatialstats.git
-   cd pyspatialstats
+   cd pygeostats
    
    # Install maturin
    pip install maturin
@@ -80,12 +80,12 @@ Test your installation:
 
 .. code-block:: python
 
-   import pyspatialstats
-   print(pyspatialstats.__version__)
+   import pygeostats
+   print(pygeostats.__version__)
 
    # Run a simple test
    import numpy as np
-   from pyspatialstats.variogram import EmpiricalVariogram
+   from pygeostats.variogram import EmpiricalVariogram
 
    coords = np.random.uniform(0, 1, size=(10, 2))
    values = np.random.randn(10)
@@ -103,8 +103,8 @@ This usually indicates the Rust extension wasn't compiled properly. Try:
 
 .. code-block:: bash
 
-   pip uninstall pyspatialstats
-   pip install --no-cache-dir pyspatialstats
+   pip uninstall pygeostats
+   pip install --no-cache-dir pygeostats
 
 **BLAS/LAPACK Errors**
 
@@ -112,7 +112,7 @@ Install the appropriate system libraries as described above, then reinstall:
 
 .. code-block:: bash
 
-   pip install --force-reinstall --no-cache-dir pyspatialstats
+   pip install --force-reinstall --no-cache-dir pygeostats
 
 **Compilation Issues on Apple Silicon**
 
@@ -121,6 +121,6 @@ If you encounter issues on M1/M2 Macs:
 .. code-block:: bash
 
    export MACOSX_DEPLOYMENT_TARGET=11.0
-   pip install pyspatialstats
+   pip install pygeostats
 
 For more help, please open an issue on our `GitHub repository <https://github.com/username/pyspatialstats>`_.
