@@ -1175,7 +1175,26 @@ fn run_levenberg_marquardt_internal(
             break;
         }
 
-        let (matrix, rhs) = assemble_linear_system(&jtj, &jtr, &free_indices, lambda);
+        // Active set: hold parameters pinned against a bound out of the solve.
+        // Solving with them included and clipping afterwards yields a step that
+        // is not a descent direction for the others, so at optima with the
+        // nugget at zero every step was rejected until the iteration limit.
+        let solve_indices: Vec<usize> = free_indices
+            .iter()
+            .copied()
+            .filter(|&idx| !pinned_against_bound(idx, &jtr, &params_vec, anisotropic))
+            .collect();
+        if solve_indices.is_empty() {
+            // Every free parameter is held at a bound by its own gradient: a
+            // first-order stationary point of the constrained problem.
+            best_cost = cost;
+            best_params = params_vec.clone();
+            best_jtj = jtj;
+            status = OptimizationStatus::Succeeded;
+            break;
+        }
+
+        let (matrix, rhs) = assemble_linear_system(&jtj, &jtr, &solve_indices, lambda);
         let Some(delta) = solve_linear_system(matrix, rhs) else {
             lambda = (lambda * 10.0).min(MAX_LAMBDA);
             if lambda >= MAX_LAMBDA {
@@ -1188,7 +1207,7 @@ fn run_levenberg_marquardt_internal(
 
         let step_norm = delta.iter().map(|d| d * d).sum::<f64>().sqrt();
         let mut candidate = params_vec.clone();
-        for (offset, &param_idx) in free_indices.iter().enumerate() {
+        for (offset, &param_idx) in solve_indices.iter().enumerate() {
             candidate[param_idx] += delta[offset];
         }
         enforce_bounds(&mut candidate, anisotropic);
@@ -1814,20 +1833,25 @@ fn projected_gradient_converged(
     anisotropic: bool,
     cost: f64,
 ) -> bool {
-    let at_lower_bound = |idx: usize| -> bool {
-        match idx {
-            0 => params[0] <= 0.0,
-            1 => params[1] <= params[0] + 2.0 * MIN_SILL_GAP,
-            2 if !anisotropic => params[2] <= MIN_RANGE * (1.0 + 1e-9),
-            _ => false,
-        }
-    };
     let norm_sq: f64 = free_indices
         .iter()
-        .filter(|&&idx| !(at_lower_bound(idx) && jtr[idx] > 0.0))
+        .filter(|&&idx| !pinned_against_bound(idx, jtr, params, anisotropic))
         .map(|&idx| jtr[idx] * jtr[idx])
         .sum();
     norm_sq.sqrt() <= GRADIENT_TOL * cost.abs().max(1.0)
+}
+
+/// Whether a parameter sits on its lower bound with a gradient pushing it
+/// further out. Such a parameter belongs to the active set: it is excluded from
+/// the optimality test and held fixed for the step.
+fn pinned_against_bound(idx: usize, jtr: &[f64], params: &[f64], anisotropic: bool) -> bool {
+    let on_lower_bound = match idx {
+        0 => params[0] <= 0.0,
+        1 => params[1] <= params[0] + 2.0 * MIN_SILL_GAP,
+        2 if !anisotropic => params[2] <= MIN_RANGE * (1.0 + 1e-9),
+        _ => false,
+    };
+    on_lower_bound && jtr[idx] > 0.0
 }
 
 fn enforce_bounds(params: &mut [f64], anisotropic: bool) {

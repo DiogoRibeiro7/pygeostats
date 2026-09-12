@@ -15,6 +15,7 @@ least-squares optimum of its empirical variogram is well defined.
 
 import numpy as np
 import pytest
+from pygeostats._core import fit_variogram_model
 from pygeostats.variogram.empirical import EmpiricalVariogram
 from pygeostats.variogram.models import Variogram
 from scipy.optimize import least_squares
@@ -27,6 +28,10 @@ from .data_generation import (
 from .gstat_reference import build_reference_datasets
 
 ADMISSIBILITY_WARNING = "No admissible fit"
+# The optimiser caps at 250 iterations. Every synthetic fit here converges in
+# under 50, so a fit that reaches this budget has regressed to running to the
+# cap without converging.
+ITERATION_BUDGET = 100
 
 
 def _gamma(h, nugget, sill, range_, model):
@@ -103,6 +108,46 @@ def test_fit_reaches_least_squares_optimum_where_single_start_failed(model, para
         d, g, w, optimum, model
     )
     assert not any(ADMISSIBILITY_WARNING in msg for msg in variogram.warnings_)
+    assert variogram.converged_
+    assert variogram.fit_statistics_["iterations"] < ITERATION_BUDGET
+
+
+def test_optimum_with_nugget_on_its_bound_converges_quickly():
+    # This realisation's least-squares optimum has the nugget exactly at zero.
+    # The optimizer used to solve with the pinned nugget included, clip it, and
+    # reject every resulting step -- running all 250 iterations to report
+    # max_iterations at the correct answer. Holding pinned parameters out of the
+    # solve converges in a handful of iterations.
+    ev = _synthetic_variogram(
+        "exponential", VariogramParameters(nugget=0.05, sill=1.0, range=0.35), seed=0
+    )
+    variogram = Variogram(model="exponential").fit(
+        ev.distances_, ev.gamma_, weights=ev.counts_
+    )
+
+    assert variogram.nugget_ == 0.0
+    assert variogram.status_ == "succeeded"
+    assert variogram.converged_
+    assert variogram.fit_statistics_["iterations"] < ITERATION_BUDGET
+
+
+def test_range_collapsed_to_its_floor_is_not_reported_as_success():
+    # Called on the Rust core directly: Variogram.fit's multi-start never returns
+    # this solution, so there is no public path to a single start. From range 2.0
+    # this realisation descends to the 1e-6 range floor, where the model is
+    # constant over every observed lag and the optimality test passes vacuously.
+    # That used to be labelled succeeded.
+    ev = _synthetic_variogram(
+        "exponential", VariogramParameters(nugget=0.05, sill=1.0, range=0.35), seed=0
+    )
+    d, g, w = _fitting_bins(ev)
+    result = fit_variogram_model(
+        d, g, "exponential", np.array([0.0, 1.1 * float(g.max()), 2.0]), weights=w
+    )
+
+    assert result.parameters[2] <= 1e-6 * (1 + 1e-9)
+    assert result.status == "invalid_parameters"
+    assert result.converged is False
 
 
 def test_fixed_range_is_left_exactly_where_it_was_fixed():
