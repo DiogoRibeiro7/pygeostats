@@ -4,10 +4,6 @@
 from .empirical import EmpiricalVariogram
 from .models import Variogram
 from .directional import DirectionalVariogram, AnisotropyResult
-from .initialization import (
-    AnisotropyInitializationCandidate,
-    AnisotropyInitializationSummary,
-)
 from .streaming import (
     StreamingVariogramBuilder,
     StreamingVariogramDenseResult,
@@ -23,8 +19,6 @@ __all__ = [
     "Variogram",
     "DirectionalVariogram",
     "AnisotropyResult",
-    "AnisotropyInitializationCandidate",
-    "AnisotropyInitializationSummary",
     "StreamingVariogramBuilder",
     "StreamingVariogramDenseResult",
     "StreamingVariogramSparseResult",

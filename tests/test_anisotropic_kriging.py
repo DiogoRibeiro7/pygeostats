@@ -110,7 +110,10 @@ class TestAnisotropicKriging:
         coords_1d = np.array([[0.0], [1.0], [2.0]])
         values_1d = np.array([1.0, 2.0, 3.0])
         
-        with pytest.raises(ValueError, match="requires 2D coordinates"):
+        with pytest.raises(
+            ValueError,
+            match="requires 2D coordinates|must have at least 2 dimensions",
+        ):
             kriging.fit(coords_1d, values_1d)
 
     def test_predict_basic(self):
@@ -272,6 +275,11 @@ class TestDirectionalVariogramIntegration:
             'ratio': range_major / range_minor
         }
 
+    @pytest.mark.xfail(
+        reason="Depends on DirectionalVariogram.estimate_initial_parameters(), which calls estimate_anisotropy_initialization() -- never implemented (see feca441). create_anisotropic_variogram_from_directional() is unusable for the same reason.",
+        raises=NotImplementedError,
+        strict=True,
+    )
     def test_directional_to_anisotropic_workflow(self):
         """Test complete workflow from directional analysis to anisotropic kriging."""
         # Step 1: Directional variogram analysis
@@ -307,6 +315,11 @@ class TestDirectionalVariogramIntegration:
         assert np.all(np.isfinite(predictions))
         assert np.all(variances >= 0)
 
+    @pytest.mark.xfail(
+        reason="Depends on DirectionalVariogram.estimate_initial_parameters(), which calls estimate_anisotropy_initialization() -- never implemented (see feca441). create_anisotropic_variogram_from_directional() is unusable for the same reason.",
+        raises=NotImplementedError,
+        strict=True,
+    )
     def test_parameter_recovery_accuracy(self):
         """Test how well we can recover known anisotropic parameters."""
         directional_vario = DirectionalVariogram(

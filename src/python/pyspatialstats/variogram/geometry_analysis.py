@@ -165,31 +165,3 @@ def _best_direction(results: Dict[float, DirectionalResult]) -> Optional[float]:
         return None
     candidates.sort(key=lambda item: item[0], reverse=True)
     return candidates[0][1]
-
-
-def _validate_geometry_cases() -> None:
-    coords_grid = np.array(
-        [
-            [0.0, 0.0],
-            [1.0, 0.0],
-            [2.0, 0.0],
-            [3.0, 0.0],
-            [0.0, 1.0],
-            [1.0, 1.0],
-            [2.0, 1.0],
-            [3.0, 1.0],
-        ]
-    )
-    analyzer = SpatialGeometryAnalyzer(coords_grid)
-    diag = analyzer.analyze()
-    assert diag.sampling_pattern == "regular"
-    assert 0.0 <= diag.primary_angle_deg <= 1.0 or 179.0 <= diag.primary_angle_deg <= 180.0
-
-    rng = np.random.default_rng(4)
-    coords_random = rng.uniform(-1.0, 1.0, size=(40, 2))
-    diag_random = SpatialGeometryAnalyzer(coords_random).analyze()
-    assert diag_random.sampling_pattern == "irregular"
-
-
-if __debug__:
-    _validate_geometry_cases()

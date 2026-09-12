@@ -72,8 +72,6 @@ except ModuleNotFoundError:
 try:
     from . import variogram
     from .variogram import (
-        AnisotropyInitializationCandidate,
-        AnisotropyInitializationSummary,
         AnisotropyResult,
         DirectionalVariogram,
         EmpiricalVariogram,
@@ -148,7 +146,5 @@ if variogram is not None:
             "EmpiricalVariogram",
             "DirectionalVariogram",
             "AnisotropyResult",
-            "AnisotropyInitializationCandidate",
-            "AnisotropyInitializationSummary",
         ]
     )

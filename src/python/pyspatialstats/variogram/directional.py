@@ -4,13 +4,11 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Dict, Iterable, List, Optional, Sequence, Tuple, TYPE_CHECKING
+from typing import Dict, Iterable, List, NoReturn, Optional, Sequence, Tuple
 
 import numpy as np
 
 from ..utils.validation import validate_coordinates, validate_values
-if TYPE_CHECKING:  # pragma: no cover
-    from .initialization import AnisotropyInitializationSummary
 
 
 DEFAULT_DIRECTIONS = (0.0, 45.0, 90.0, 135.0)
@@ -327,26 +325,23 @@ class DirectionalVariogram:
         strategies: Optional[Sequence[str]] = None,
         min_weight: int = 5,
         sill_fraction: float = 0.95,
-    ) -> "AnisotropyInitializationSummary":
-        """Generate anisotropic variogram initialisation candidates."""
+    ) -> "NoReturn":
+        """Generate anisotropic variogram initialisation candidates.
 
-        if not self.is_fitted:
-            raise RuntimeError("compute() must be called before estimating parameters")
+        Not implemented. This method was committed in feca441 calling
+        ``estimate_anisotropy_initialization``, and returning an
+        ``AnisotropyInitializationSummary``, neither of which was ever
+        written. Use :class:`~.initialization.InitializationEnsemble` or
+        :class:`~.initialization.RangeInitializer` directly instead; both
+        are implemented and cover the same ground.
+        """
 
-        detection = self.detect_anisotropy(sill_fraction=sill_fraction)
-        from .initialization import estimate_anisotropy_initialization
-
-        summary = estimate_anisotropy_initialization(
-            directional_results=self.directional_results_,
-            ranges=detection.ranges,
-            coordinates=self.coordinates,
-            sill=detection.sill,
-            max_distance=self.max_distance_,
-            strategies=strategies,
-            min_weight=min_weight,
-            sill_fraction=sill_fraction,
+        raise NotImplementedError(
+            "estimate_initial_parameters() is not implemented: the "
+            "estimate_anisotropy_initialization() helper it calls has never "
+            "existed. Use InitializationEnsemble or RangeInitializer from "
+            "pyspatialstats.variogram.initialization instead."
         )
-        return summary
 
     def anisotropy_rose_data(self) -> Tuple[np.ndarray, np.ndarray]:
         """Return angles and ranges suitable for rose-diagram plotting."""
