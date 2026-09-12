@@ -78,7 +78,7 @@ Or install from source:
 
 .. code-block:: bash
 
-   git clone https://github.com/username/pyspatialstats.git
+   git clone https://github.com/DiogoRibeiro7/pyspatialstats.git
    cd pygeostats
    maturin develop --extras dev
 

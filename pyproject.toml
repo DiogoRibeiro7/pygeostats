@@ -5,9 +5,9 @@ build-backend = "maturin"
 [project]
 name = "pygeostats"
 version = "0.1.0"
-description = "High-performance spatial statistics for Python"
+description = "Geostatistics for Python with a Rust-accelerated core: variograms, kriging, point patterns and spatial autocorrelation"
 authors = [
-    {name = "Your Name", email = "your.email@domain.com"},
+    {name = "Diogo Ribeiro", email = "diogo_dj@hotmail.com"},
 ]
 readme = "README.md"
 license = {text = "MIT"}
@@ -21,7 +21,10 @@ classifiers = [
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Programming Language :: Rust",
+    "Topic :: Scientific/Engineering :: GIS",
     "Topic :: Scientific/Engineering :: Mathematics",
 ]
 requires-python = ">=3.9"
@@ -33,6 +36,10 @@ dependencies = [
     "scikit-learn>=1.0.0",
     "matplotlib>=3.5.0",
 ]
+
+[project.urls]
+Repository = "https://github.com/DiogoRibeiro7/pyspatialstats"
+Issues = "https://github.com/DiogoRibeiro7/pyspatialstats/issues"
 
 [project.optional-dependencies]
 dev = [

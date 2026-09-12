@@ -28,7 +28,7 @@ Thanks for helping improve **PySpatialStats**. This guide explains how to set up
 
 ```bash
 # Clone
-git clone https://github.com/username/pyspatialstats.git
+git clone https://github.com/DiogoRibeiro7/pyspatialstats.git
 cd pygeostats
 
 # Install Poetry (if needed)
