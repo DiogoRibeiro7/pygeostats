@@ -89,10 +89,6 @@ class TestVariogram:
         assert len(pred_gamma) == len(self.distances)
         assert np.all(pred_gamma >= 0)  # Variogram values should be non-negative
 
-    @pytest.mark.xfail(
-        reason="Variogram.covariance() returns 0.612 at lag 0 where sill_ is 0.736. C(0) should equal the sill; suggests the nugget is mishandled in the covariance-from-semivariance conversion.",
-        strict=True,
-    )
     def test_covariance(self):
         """Test covariance calculation."""
         vario = Variogram(model="exponential")
