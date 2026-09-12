@@ -201,12 +201,8 @@ impl StreamingVariogramAccumulator {
     }
 
     pub fn reset(&mut self) {
-        for value in &mut self.bin_sums {
-            *value = 0.0;
-        }
-        for value in &mut self.bin_weights {
-            *value = 0.0;
-        }
+        self.bin_sums.fill(0.0);
+        self.bin_weights.fill(0.0);
         self.total_weight = 0.0;
     }
 
@@ -1654,6 +1650,7 @@ fn build_normal_equations(
         idx += stride;
     }
 
+    #[allow(clippy::needless_range_loop)] // symmetrising: indexes jtj twice, transposed
     for row in 0..param_count {
         for col in 0..row {
             jtj[row][col] = jtj[col][row];
@@ -1720,6 +1717,8 @@ fn solve_linear_system(mut matrix: Vec<Vec<f64>>, mut rhs: Vec<f64>) -> Option<V
         let diag = matrix[i][i];
         for row in i + 1..n {
             let factor = matrix[row][i] / diag;
+            // reads the pivot row while writing another row of the same matrix
+            #[allow(clippy::needless_range_loop)]
             for col in i..n {
                 matrix[row][col] -= factor * matrix[i][col];
             }

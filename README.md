@@ -136,7 +136,15 @@ black --check src/python/ tests/
 ruff check src/python/ tests/
 cargo fmt --all -- --check
 cargo clippy --all-targets -- -D warnings
+
+# note the flags: extension-module tells the linker not to link libpython,
+# which is correct for the cdylib but breaks a plain `cargo test` on Linux
+# and macOS with undefined Python symbols
+cargo test --no-default-features --features parallel
 ```
+
+The Rust toolchain is pinned in `rust-toolchain.toml`, so rustup will fetch the
+matching compiler automatically.
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for the full workflow and
 [ROADMAP.md](ROADMAP.md) for planned work.

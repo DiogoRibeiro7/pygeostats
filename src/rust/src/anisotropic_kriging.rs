@@ -237,6 +237,11 @@ pub fn anisotropic_kriging_variance<'py>(
     Ok(variances.into_pyarray(py))
 }
 
+// Not registered in lib.rs, so it is unreachable from Python -- unlike
+// ordinary_kriging_predict_neighbors, which is. Exporting it would add public
+// numerical surface that no test covers, so that is a deliberate decision to
+// make separately rather than a side effect of silencing a lint.
+#[allow(dead_code)]
 #[pyfunction]
 pub fn anisotropic_kriging_predict_neighbors<'py>(
     py: Python<'py>,
@@ -330,6 +335,9 @@ pub fn anisotropic_kriging_predict_neighbors<'py>(
     Ok(Array1::from_vec(predictions).into_pyarray(py))
 }
 
+// Only called by anisotropic_kriging_predict_neighbors, which is itself
+// unregistered; see the note above it.
+#[allow(dead_code)]
 fn predict_single_point_with_neighbors(
     known_coords: &ArrayView2<f64>,
     known_values: &ArrayView1<f64>,

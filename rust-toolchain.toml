@@ -1,0 +1,12 @@
+# Pinned so local development and CI use the same compiler.
+#
+# This exists because they did not: clippy passed locally on 1.88 while CI ran
+# 1.98 and failed on seven findings, including lints that did not exist in the
+# older release. rustup honours this file for every cargo invocation in the
+# repository, so the lint gate is now deterministic.
+#
+# Bumping the channel is a deliberate one-line change. Expect new clippy lints
+# when you do.
+[toolchain]
+channel = "1.98.1"
+components = ["rustfmt", "clippy"]

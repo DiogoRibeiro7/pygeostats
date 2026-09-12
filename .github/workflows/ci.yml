@@ -32,6 +32,8 @@ jobs:
         with:
           python-version: "3.12"
 
+      # The version and components come from rust-toolchain.toml, which pins
+      # local and CI to the same compiler.
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
@@ -132,8 +134,11 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
 
+      # extension-module must be off for tests: it tells the linker not to link
+      # libpython, which is right for the cdylib but leaves the test binary with
+      # undefined Python symbols on Linux and macOS.
       - name: cargo test
-        run: cargo test --all-features
+        run: cargo test --no-default-features --features parallel
 
   # The previous workflow had a benchmark job invoking
   # benchmarks/benchmark_variogram.py and benchmarks/compare_with_gstat.py.
