@@ -57,7 +57,7 @@ jobs:
       - name: ruff
         run: ruff check src/python/ tests/
 
-      # Advisory, not a gate. mypy reports 138 findings in first-party code;
+      # Advisory, not a gate. mypy reports 137 findings in first-party code;
       # clearing them is an annotation project tracked separately. The step
       # still runs so the number stays visible and cannot quietly grow.
       - name: mypy (advisory)
