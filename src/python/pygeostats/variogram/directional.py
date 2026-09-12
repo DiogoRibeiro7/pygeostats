@@ -3,13 +3,13 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import Dict, Iterable, List, NoReturn, Optional, Sequence, Tuple
+from typing import Dict, List, NoReturn, Optional, Tuple
 
 import numpy as np
 
 from ..utils.validation import validate_coordinates, validate_values
-
 
 DEFAULT_DIRECTIONS = (0.0, 45.0, 90.0, 135.0)
 
@@ -101,7 +101,9 @@ class DirectionalVariogram:
         self.n_bins = int(n_bins)
         if self.n_bins < 1:
             raise ValueError("n_bins must be positive")
-        self.bin_edges = None if bin_edges is None else np.asarray(bin_edges, dtype=float)
+        self.bin_edges = (
+            None if bin_edges is None else np.asarray(bin_edges, dtype=float)
+        )
 
         self._pairs_cache: Optional[Dict[str, np.ndarray]] = None
         self.bin_edges_: Optional[np.ndarray] = None
@@ -110,7 +112,9 @@ class DirectionalVariogram:
         self._is_fitted = False
 
     @staticmethod
-    def automatic_direction_set(coords: np.ndarray, n_directions: int = 4) -> List[float]:
+    def automatic_direction_set(
+        coords: np.ndarray, n_directions: int = 4
+    ) -> List[float]:
         """Return evenly spaced directions aligned with principal axes."""
 
         coords = validate_coordinates(coords)
@@ -122,14 +126,18 @@ class DirectionalVariogram:
         cov = np.cov(centered.T)
         eigvals, eigvecs = np.linalg.eigh(cov)
         major_vec = eigvecs[:, np.argmax(eigvals)]
-        base_angle = (np.degrees(np.arctan2(major_vec[1], major_vec[0])) + 360.0) % 180.0
+        base_angle = (
+            np.degrees(np.arctan2(major_vec[1], major_vec[0])) + 360.0
+        ) % 180.0
         step = 180.0 / n_directions
         return [float((base_angle + k * step) % 180.0) for k in range(n_directions)]
 
     def _prepare_bins(self) -> None:
         if self.bin_edges is not None:
             self.bin_edges_ = self.bin_edges
-            self.max_distance_ = float(self.bin_edges_[-1]) if self.bin_edges_.size else None
+            self.max_distance_ = (
+                float(self.bin_edges_[-1]) if self.bin_edges_.size else None
+            )
             return
         if self.max_distance is None:
             distances = np.linalg.norm(
@@ -160,7 +168,7 @@ class DirectionalVariogram:
             "semivariances": semivariances,
         }
 
-    def compute(self) -> "DirectionalVariogram":
+    def compute(self) -> DirectionalVariogram:
         """Compute directional variograms for the configured directions."""
 
         self._prepare_bins()
@@ -187,7 +195,9 @@ class DirectionalVariogram:
 
             sel_distances = distances[mask]
             sel_semivar = semivariances[mask]
-            result = self._reduce_direction(float(angle), sel_distances, sel_semivar, bin_centers)
+            result = self._reduce_direction(
+                float(angle), sel_distances, sel_semivar, bin_centers
+            )
             self.directional_results_[float(angle)] = result
 
         self._is_fitted = True
@@ -206,17 +216,23 @@ class DirectionalVariogram:
         ci_lower = np.full(n_bins, np.nan)
         ci_upper = np.full(n_bins, np.nan)
         if len(distances) == 0:
-            return DirectionalResult(angle, bin_centers, mean, counts, ci_lower, ci_upper)
+            return DirectionalResult(
+                angle, bin_centers, mean, counts, ci_lower, ci_upper
+            )
 
         indices = np.digitize(distances, self.bin_edges_) - 1
         valid = (indices >= 0) & (indices < n_bins)
         indices = indices[valid]
         if len(indices) == 0:
-            return DirectionalResult(angle, bin_centers, mean, counts, ci_lower, ci_upper)
+            return DirectionalResult(
+                angle, bin_centers, mean, counts, ci_lower, ci_upper
+            )
 
         counts = np.bincount(indices, minlength=n_bins).astype(int)
         sums = np.bincount(indices, weights=semivariances[valid], minlength=n_bins)
-        sums_sq = np.bincount(indices, weights=(semivariances[valid] ** 2), minlength=n_bins)
+        sums_sq = np.bincount(
+            indices, weights=(semivariances[valid] ** 2), minlength=n_bins
+        )
 
         with np.errstate(invalid="ignore"):
             mean = sums / counts
@@ -295,7 +311,9 @@ class DirectionalVariogram:
         finite_ranges = {k: v for k, v in ranges.items() if np.isfinite(v)}
         if len(finite_ranges) < 2:
             diagnostics = {"max_range": np.nan, "min_range": np.nan}
-            return AnisotropyResult(False, np.nan, np.nan, 1.0, ranges, sill, diagnostics)
+            return AnisotropyResult(
+                False, np.nan, np.nan, 1.0, ranges, sill, diagnostics
+            )
 
         major_direction = max(finite_ranges, key=finite_ranges.get)
         minor_direction = min(finite_ranges, key=finite_ranges.get)
@@ -325,7 +343,7 @@ class DirectionalVariogram:
         strategies: Optional[Sequence[str]] = None,
         min_weight: int = 5,
         sill_fraction: float = 0.95,
-    ) -> "NoReturn":
+    ) -> NoReturn:
         """Generate anisotropic variogram initialisation candidates.
 
         Not implemented. This method was committed in feca441 calling

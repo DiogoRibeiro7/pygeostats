@@ -1,7 +1,6 @@
 """Tests for spatial segregation indices."""
 
 import numpy as np
-
 from pygeostats.point_patterns import compute_spatial_segregation_indices
 
 

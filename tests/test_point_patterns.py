@@ -1,7 +1,6 @@
 """Tests for point pattern analysis tools."""
 
 import numpy as np
-
 from pygeostats.point_patterns import (
     f_function,
     g_function,
@@ -35,9 +34,9 @@ def test_ripley_k_monotonic_non_decreasing() -> None:
 def test_ripley_l_non_decreasing() -> None:
     coords = _sample_points()
     radii = np.linspace(0.01, 0.25, 25)
-    l = ripley_l_function(coords, radii, area=1.0)
-    assert l.shape == radii.shape
-    assert np.all(np.diff(l) >= -1e-12)
+    l_values = ripley_l_function(coords, radii, area=1.0)
+    assert l_values.shape == radii.shape
+    assert np.all(np.diff(l_values) >= -1e-12)
 
 
 def test_g_and_f_are_valid_cdfs() -> None:

@@ -1,7 +1,6 @@
 """Tests for Phase 3.2 spatial clustering tools."""
 
 import numpy as np
-
 from pygeostats.point_patterns import (
     cluster_validation_metrics,
     getis_ord_gi_star,
@@ -29,7 +28,7 @@ def test_getis_ord_gi_star_detects_hotspot_center() -> None:
     hotspot_values = np.concatenate(
         [
             np.full(60, 10.0),  # hot cluster
-            np.full(60, 1.0),   # cool cluster
+            np.full(60, 1.0),  # cool cluster
         ]
     )
     gi = getis_ord_gi_star(coords, hotspot_values, distance_threshold=0.2)

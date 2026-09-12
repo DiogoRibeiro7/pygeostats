@@ -125,7 +125,9 @@ def kernel_density_estimate(
     return {"x": grid_x, "y": grid_y, "density": density}
 
 
-def cluster_validation_metrics(coords: np.ndarray, labels: np.ndarray) -> Dict[str, float]:
+def cluster_validation_metrics(
+    coords: np.ndarray, labels: np.ndarray
+) -> Dict[str, float]:
     """
     Compute clustering quality metrics for non-noise clusters.
 
@@ -142,7 +144,7 @@ def cluster_validation_metrics(coords: np.ndarray, labels: np.ndarray) -> Dict[s
     labs_eval = labs[non_noise_mask]
 
     unique_clusters = np.unique(labs_eval)
-    n_clusters = int(len(unique_clusters))
+    n_clusters = len(unique_clusters)
     if n_clusters < 2 or len(arr_eval) <= n_clusters:
         return {
             "n_clusters": float(n_clusters),

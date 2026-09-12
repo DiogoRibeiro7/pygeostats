@@ -4,35 +4,29 @@
 import gc
 import os
 import time
-import warnings
 from functools import partial
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Dict, Tuple
 
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
-import seaborn as sns
-
-from pygeostats.variogram import EmpiricalVariogram, Variogram
-from pygeostats.variogram.streaming import (
-    StreamingEmpiricalVariogram,
-    streaming_variogram,
-)
+from pygeostats.acceleration.gpu import get_gpu_accelerator
 from pygeostats.kriging import OrdinaryKriging
+from pygeostats.kriging.executor import ParallelKrigingExecutor
 from pygeostats.kriging.neighbor_search import (
     ApproximateNeighborIndex,
     LocalKrigingPredictor,
 )
-from pygeostats.kriging.executor import ParallelKrigingExecutor
 from pygeostats.optimization.memory import (
     MemoryManager,
     SparseDistanceMatrix,
-    MemoryEfficientKriging,
-    estimate_kriging_memory,
     memory_profile,
 )
-from pygeostats.acceleration.gpu import get_gpu_accelerator, is_gpu_available
+from pygeostats.variogram import EmpiricalVariogram, Variogram
+from pygeostats.variogram.streaming import (
+    StreamingEmpiricalVariogram,
+)
 
 
 class LargeDatasetBenchmark:
@@ -290,9 +284,11 @@ class LargeDatasetBenchmark:
                         "memory_used_gb": memory_used,
                         "success": success,
                         "pairs_processed": n_pairs,
-                        "pairs_per_second": n_pairs / elapsed_time
-                        if success and elapsed_time > 0
-                        else 0,
+                        "pairs_per_second": (
+                            n_pairs / elapsed_time
+                            if success and elapsed_time > 0
+                            else 0
+                        ),
                     }
                 )
 
@@ -386,9 +382,9 @@ class LargeDatasetBenchmark:
                         "memory_used_gb": memory_used,
                         "success": success,
                         "rmse": rmse,
-                        "predictions_per_second": n_pred / elapsed_time
-                        if success and elapsed_time > 0
-                        else 0,
+                        "predictions_per_second": (
+                            n_pred / elapsed_time if success and elapsed_time > 0 else 0
+                        ),
                     }
                 )
 
@@ -1013,9 +1009,11 @@ class LargeDatasetBenchmark:
                     "### Streaming Variogram",
                     f"- Regular approach maximum: {max_size_regular:,} samples",
                     f"- Streaming approach maximum: {max_size_streaming:,} samples",
-                    f"- Streaming enables processing of datasets {max_size_streaming / max_size_regular:.1f}x larger"
-                    if max_size_regular > 0
-                    else "",
+                    (
+                        f"- Streaming enables processing of datasets {max_size_streaming / max_size_regular:.1f}x larger"
+                        if max_size_regular > 0
+                        else ""
+                    ),
                     "",
                 ]
             )

@@ -3,8 +3,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterable, Sequence
 from pathlib import Path
-from typing import Dict, Iterable, Optional, Sequence, Tuple
+from typing import Dict, Optional, Tuple
 
 import numpy as np
 from scipy import stats
@@ -28,24 +29,26 @@ except ImportError:  # pragma: no cover - optional dependency
     _HAS_PLOTLY = False
 
 __all__ = [
-    "plot_variogram",
+    "plot_anisotropy_rose",
     "plot_directional_variograms",
-    "plot_variogram_rose",
+    "plot_kriging_cross_section",
     "plot_kriging_results",
     "plot_kriging_uncertainty",
-    "plot_kriging_cross_section",
     "plot_prediction_comparison",
     "plot_residuals_qq",
-    "plot_variogram_cloud",
     "plot_spatial_correlation",
-    "plot_anisotropy_rose",
+    "plot_variogram",
+    "plot_variogram_cloud",
+    "plot_variogram_rose",
 ]
 
 
 def _ensure_backend(backend: str) -> str:
     backend = backend.lower()
     if backend == "matplotlib" and not _HAS_MPL:
-        raise RuntimeError("matplotlib is not installed; install it to use this backend")
+        raise RuntimeError(
+            "matplotlib is not installed; install it to use this backend"
+        )
     if backend == "plotly" and not _HAS_PLOTLY:
         raise RuntimeError("plotly is not installed; install it to use this backend")
     if backend not in {"matplotlib", "plotly"}:
@@ -73,7 +76,9 @@ def plot_variogram(
     distances: Sequence[float],
     gamma: Sequence[float],
     counts: Optional[Sequence[int]] = None,
-    model_curves: Optional[Iterable[Tuple[str, Sequence[float], Sequence[float]]]] = None,
+    model_curves: Optional[
+        Iterable[Tuple[str, Sequence[float], Sequence[float]]]
+    ] = None,
     confidence_interval: Optional[Tuple[Sequence[float], Sequence[float]]] = None,
     backend: str = "matplotlib",
     title: Optional[str] = None,
@@ -107,7 +112,9 @@ def plot_variogram(
             size = 40 * (weights / weights.max()) + 20
         ax.scatter(distances, gamma, s=size, color="tab:blue", label="Empirical")
         if lower is not None and upper is not None:
-            ax.fill_between(distances, lower, upper, color="tab:blue", alpha=0.2, label="CI")
+            ax.fill_between(
+                distances, lower, upper, color="tab:blue", alpha=0.2, label="CI"
+            )
         if model_curves:
             for label, model_dist, model_gamma in model_curves:
                 ax.plot(model_dist, model_gamma, linewidth=2, label=label)
@@ -168,7 +175,9 @@ def plot_variogram(
 
 
 def plot_directional_variograms(
-    directional_results: Dict[float, Dict[str, np.ndarray]] | Iterable[Dict[str, np.ndarray]],
+    directional_results: (
+        Dict[float, Dict[str, np.ndarray]] | Iterable[Dict[str, np.ndarray]]
+    ),
     backend: str = "matplotlib",
     title: Optional[str] = None,
     save_path: Optional[str] = None,
@@ -181,15 +190,20 @@ def plot_directional_variograms(
         items = directional_results.items()
     else:
         items = [
-            (res["angle"], res)
-            if isinstance(res, dict) and "angle" in res
-            else (res.angle, {
-                "bin_centers": res.bin_centers,
-                "gamma": res.gamma,
-                "counts": res.counts,
-                "ci_lower": res.ci_lower,
-                "ci_upper": res.ci_upper,
-            })
+            (
+                (res["angle"], res)
+                if isinstance(res, dict) and "angle" in res
+                else (
+                    res.angle,
+                    {
+                        "bin_centers": res.bin_centers,
+                        "gamma": res.gamma,
+                        "counts": res.counts,
+                        "ci_lower": res.ci_lower,
+                        "ci_upper": res.ci_upper,
+                    },
+                )
+            )
             for res in directional_results
         ]
     curves = []
@@ -204,8 +218,12 @@ def plot_directional_variograms(
                     float(angle),
                     centers[valid],
                     gamma[valid],
-                    np.asarray(payload.get("ci_lower", np.full_like(centers, np.nan)))[valid],
-                    np.asarray(payload.get("ci_upper", np.full_like(centers, np.nan)))[valid],
+                    np.asarray(payload.get("ci_lower", np.full_like(centers, np.nan)))[
+                        valid
+                    ],
+                    np.asarray(payload.get("ci_upper", np.full_like(centers, np.nan)))[
+                        valid
+                    ],
                 )
             )
     curves.sort(key=lambda item: item[0])
@@ -230,9 +248,7 @@ def plot_directional_variograms(
     fig = go.Figure()
     for angle, centers, gamma, lower, upper in curves:
         label = f"{angle:.0f} deg"
-        fig.add_trace(
-            go.Scatter(x=centers, y=gamma, mode="lines+markers", name=label)
-        )
+        fig.add_trace(go.Scatter(x=centers, y=gamma, mode="lines+markers", name=label))
         if np.any(np.isfinite(lower)) and np.any(np.isfinite(upper)):
             fig.add_trace(
                 go.Scatter(
@@ -495,7 +511,9 @@ def plot_prediction_comparison(
 
     if backend == "matplotlib":
         fig, ax = plt.subplots(figsize=(6, 6))
-        ax.scatter(observed, predicted, color="tab:blue", alpha=0.7, label="Predictions")
+        ax.scatter(
+            observed, predicted, color="tab:blue", alpha=0.7, label="Predictions"
+        )
         ax.plot(identity, identity, color="black", linestyle="--", label="1:1 line")
         ax.set_xlabel("Observed")
         ax.set_ylabel("Predicted")
@@ -512,7 +530,13 @@ def plot_prediction_comparison(
         go.Scatter(x=observed, y=predicted, mode="markers", name="Predictions")
     )
     fig.add_trace(
-        go.Scatter(x=identity, y=identity, mode="lines", name="1:1 line", line=dict(color="black", dash="dash"))
+        go.Scatter(
+            x=identity,
+            y=identity,
+            mode="lines",
+            name="1:1 line",
+            line=dict(color="black", dash="dash"),
+        )
     )
     fig.update_layout(
         title=title or "Prediction vs Observed",
@@ -566,7 +590,13 @@ def plot_residuals_qq(
         go.Scatter(x=theoretical, y=ordered, mode="markers", name="Residuals")
     )
     fig.add_trace(
-        go.Scatter(x=[lo, hi], y=[lo, hi], mode="lines", name="1:1", line=dict(color="black", dash="dash"))
+        go.Scatter(
+            x=[lo, hi],
+            y=[lo, hi],
+            mode="lines",
+            name="1:1",
+            line=dict(color="black", dash="dash"),
+        )
     )
     fig.update_layout(
         title=title or "Residual QQ plot",
@@ -606,9 +636,7 @@ def plot_variogram_cloud(
             plt.show(block=False)
         return fig
 
-    fig = go.Figure(
-        go.Scatter(x=distances, y=gamma, mode="markers", opacity=0.6)
-    )
+    fig = go.Figure(go.Scatter(x=distances, y=gamma, mode="markers", opacity=0.6))
     fig.update_layout(
         title=title or "Variogram cloud",
         xaxis_title="Distance",
@@ -690,7 +718,11 @@ def plot_anisotropy_rose(
         return fig
 
     fig = go.Figure(
-        data=go.Barpolar(theta=angles, r=ranges, marker=dict(color=ranges, colorscale="Plasma", showscale=True))
+        data=go.Barpolar(
+            theta=angles,
+            r=ranges,
+            marker=dict(color=ranges, colorscale="Plasma", showscale=True),
+        )
     )
     fig.update_layout(
         title=title or "Anisotropy rose",

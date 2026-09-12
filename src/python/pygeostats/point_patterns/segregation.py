@@ -97,9 +97,7 @@ def compute_spatial_segregation_indices(
         a_total = float(np.sum(a))
         b_total = float(np.sum(b))
         if a_total > 0.0 and b_total > 0.0:
-            dissimilarity_index = float(
-                0.5 * np.sum(np.abs(a / a_total - b / b_total))
-            )
+            dissimilarity_index = float(0.5 * np.sum(np.abs(a / a_total - b / b_total)))
 
     return {
         "entropy_segregation": entropy_segregation,

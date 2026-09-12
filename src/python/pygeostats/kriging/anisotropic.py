@@ -3,14 +3,13 @@
 
 from __future__ import annotations
 
-from typing import Optional, Tuple, Union
+from typing import Tuple, Union
 
 import geopandas as gpd
 import numpy as np
 import pandas as pd
 from sklearn.base import BaseEstimator, RegressorMixin
 
-from .._core import kriging_variance
 from ..utils.validation import validate_coordinates, validate_values
 from ..variogram.models import Variogram
 
@@ -62,7 +61,7 @@ class AnisotropicKriging(BaseEstimator, RegressorMixin):
         self,
         coordinates: Union[np.ndarray, gpd.GeoDataFrame, pd.DataFrame],
         values: Union[np.ndarray, pd.Series],
-    ) -> "AnisotropicKriging":
+    ) -> AnisotropicKriging:
         """
         Fit the anisotropic kriging model.
 
@@ -169,10 +168,10 @@ class AnisotropicKriging(BaseEstimator, RegressorMixin):
                     )
                     variances[i] = max(variances[i], 0.0)  # ensure non-negative
 
-        except np.linalg.LinAlgError:
+        except np.linalg.LinAlgError as err:
             raise ValueError(
                 "Singular covariance matrix - check for duplicate points or poor conditioning"
-            )
+            ) from err
 
         if return_variance:
             return predictions, variances

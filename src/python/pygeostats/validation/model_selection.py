@@ -2,21 +2,24 @@
 
 from __future__ import annotations
 
-from typing import Iterable, List, Tuple
+from collections.abc import Iterable
+from typing import List, Tuple
 
 import numpy as np
 
-from pygeostats.variogram.empirical import EmpiricalVariogram
-from pygeostats.variogram.models import Variogram
 from pygeostats.validation.cross_validation import (
     CrossValidationResult,
     default_kriging_builder,
     default_variogram_builder,
     leave_one_out_cross_validation,
 )
+from pygeostats.variogram.empirical import EmpiricalVariogram
+from pygeostats.variogram.models import Variogram
 
 
-def _theoretical_variogram(model: str, params: Tuple[float, float, float], distances: np.ndarray) -> np.ndarray:
+def _theoretical_variogram(
+    model: str, params: Tuple[float, float, float], distances: np.ndarray
+) -> np.ndarray:
     nugget, sill, range_ = params
     if model == "exponential":
         return nugget + (sill - nugget) * (1.0 - np.exp(-distances / range_))

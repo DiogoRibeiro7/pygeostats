@@ -40,7 +40,7 @@ class NeighborQueryResult:
         self.query_indices = query_indices
         self.n_queries, self.k = indices.shape
 
-    def filter_by_distance(self, max_distance: float) -> "NeighborQueryResult":
+    def filter_by_distance(self, max_distance: float) -> NeighborQueryResult:
         """Filter neighbors by maximum distance."""
         mask = self.distances <= max_distance
 
@@ -108,7 +108,7 @@ class ApproximateNeighborIndex:
 
         self.memory_manager = MemoryManager()
 
-    def fit(self, coordinates: np.ndarray) -> "ApproximateNeighborIndex":
+    def fit(self, coordinates: np.ndarray) -> ApproximateNeighborIndex:
         """
         Build the neighbor index.
 
@@ -169,8 +169,8 @@ class ApproximateNeighborIndex:
         """Build Annoy approximate index."""
         try:
             from annoy import AnnoyIndex
-        except ImportError:
-            raise ImportError("annoy package required for annoy method")
+        except ImportError as err:
+            raise ImportError("annoy package required for annoy method") from err
 
         n_points, n_dims = coordinates.shape
 
@@ -263,8 +263,6 @@ class ApproximateNeighborIndex:
         self, query_points: np.ndarray, k: int, max_distance: Optional[float]
     ) -> Tuple[np.ndarray, np.ndarray]:
         """Query Annoy index."""
-        n_queries = len(query_points)
-
         # Annoy returns approximate results, so request more neighbors
         search_k = min(k * 10, len(self._coordinates))
 
@@ -411,9 +409,7 @@ class LocalKrigingPredictor:
         self.values_ = None
         self.is_fitted_ = False
 
-    def fit(
-        self, coordinates: np.ndarray, values: np.ndarray
-    ) -> "LocalKrigingPredictor":
+    def fit(self, coordinates: np.ndarray, values: np.ndarray) -> LocalKrigingPredictor:
         """
         Fit the local kriging predictor.
 
@@ -439,7 +435,10 @@ class LocalKrigingPredictor:
         if not self.neighbor_index._is_fitted:
             self.neighbor_index.fit(self.coordinates_)
         elif not np.array_equal(self.neighbor_index._coordinates, self.coordinates_):
-            warnings.warn("Neighbor index coordinates differ from training coordinates")
+            warnings.warn(
+                "Neighbor index coordinates differ from training coordinates",
+                stacklevel=2,
+            )
 
         self.is_fitted_ = True
         return self
@@ -526,7 +525,7 @@ class LocalKrigingPredictor:
 
             except Exception as e:
                 # Handle singular matrices or other numerical issues
-                warnings.warn(f"Local kriging failed at point {i}: {str(e)}")
+                warnings.warn(f"Local kriging failed at point {i}: {e!s}", stacklevel=2)
                 # Fallback to inverse distance weighting
                 if len(neighbor_distances) > 0 and np.any(neighbor_distances > 0):
                     weights = 1.0 / (neighbor_distances + 1e-10)

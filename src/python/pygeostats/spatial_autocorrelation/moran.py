@@ -47,13 +47,19 @@ def morans_i(
 
     if permutations > 0:
         rng = np.random.default_rng(random_state)
-        permuted = np.array([_morans_i_stat(rng.permutation(vals), w) for _ in range(permutations)])
-        p_two_sided = (np.sum(np.abs(permuted) >= abs(i_obs)) + 1.0) / (permutations + 1.0)
+        permuted = np.array(
+            [_morans_i_stat(rng.permutation(vals), w) for _ in range(permutations)]
+        )
+        p_two_sided = (np.sum(np.abs(permuted) >= abs(i_obs)) + 1.0) / (
+            permutations + 1.0
+        )
         result["p_value"] = float(p_two_sided)
     else:
         # Simple normal approximation from permutation moments.
         rng = np.random.default_rng(0)
-        approx = np.array([_morans_i_stat(rng.permutation(vals), w) for _ in range(200)])
+        approx = np.array(
+            [_morans_i_stat(rng.permutation(vals), w) for _ in range(200)]
+        )
         std = float(np.std(approx, ddof=1))
         if std > 0.0:
             z_score = (i_obs - expected_i) / std
@@ -130,13 +136,15 @@ def gearys_c(
             [_gearys_c_stat(rng.permutation(vals), w) for _ in range(permutations)]
         )
         # Use distance from the null expectation C=1.
-        p_two_sided = (
-            np.sum(np.abs(permuted - 1.0) >= abs(c_obs - 1.0)) + 1.0
-        ) / (permutations + 1.0)
+        p_two_sided = (np.sum(np.abs(permuted - 1.0) >= abs(c_obs - 1.0)) + 1.0) / (
+            permutations + 1.0
+        )
         result["p_value"] = float(p_two_sided)
     else:
         rng = np.random.default_rng(0)
-        approx = np.array([_gearys_c_stat(rng.permutation(vals), w) for _ in range(200)])
+        approx = np.array(
+            [_gearys_c_stat(rng.permutation(vals), w) for _ in range(200)]
+        )
         std = float(np.std(approx, ddof=1))
         if std > 0.0:
             z_score = (c_obs - 1.0) / std

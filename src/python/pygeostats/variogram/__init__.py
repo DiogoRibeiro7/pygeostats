@@ -1,29 +1,29 @@
 # src/python/pygeostats/variogram/__init__.py
 """Variogram modeling and analysis."""
 
+from .directional import AnisotropyResult, DirectionalVariogram
 from .empirical import EmpiricalVariogram
 from .models import Variogram
-from .directional import DirectionalVariogram, AnisotropyResult
 from .streaming import (
     StreamingVariogramBuilder,
     StreamingVariogramDenseResult,
     StreamingVariogramSparseResult,
+    chunk_indices,
+    memory_map_array,
     streaming_variogram,
     streaming_variogram_memmap,
-    memory_map_array,
-    chunk_indices,
 )
 
 __all__ = [
-    "EmpiricalVariogram",
-    "Variogram",
-    "DirectionalVariogram",
     "AnisotropyResult",
+    "DirectionalVariogram",
+    "EmpiricalVariogram",
     "StreamingVariogramBuilder",
     "StreamingVariogramDenseResult",
     "StreamingVariogramSparseResult",
+    "Variogram",
+    "chunk_indices",
+    "memory_map_array",
     "streaming_variogram",
     "streaming_variogram_memmap",
-    "memory_map_array",
-    "chunk_indices",
 ]

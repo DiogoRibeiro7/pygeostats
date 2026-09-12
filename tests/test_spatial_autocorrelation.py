@@ -1,12 +1,11 @@
 """Tests for Moran's I spatial autocorrelation statistics."""
 
 import numpy as np
-
 from pygeostats.spatial_autocorrelation import (
     gearys_c,
     global_getis_ord_g,
-    local_getis_ord_g,
     local_gearys_c,
+    local_getis_ord_g,
     local_morans_i,
     morans_i,
     row_standardize_weights,

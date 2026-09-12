@@ -8,9 +8,7 @@ They are real behavioural expectations, so they belong here.
 
 import numpy as np
 import pytest
-
 from pygeostats.variogram.geometry_analysis import SpatialGeometryAnalyzer
-
 
 REGULAR_GRID = np.array(
     [

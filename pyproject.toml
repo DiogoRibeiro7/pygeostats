@@ -38,6 +38,7 @@ dependencies = [
 dev = [
     "pytest>=7.0",
     "pytest-benchmark",
+    "pytest-cov",
     "black",
     "ruff",
     "mypy",
@@ -48,6 +49,7 @@ dev = [
 test = [
     "pytest>=7.0",
     "pytest-benchmark",
+    "pytest-cov",
     "hypothesis",
 ]
 
@@ -63,7 +65,65 @@ target-version = ['py39']
 line-length = 88
 target-version = "py39"
 
+[tool.ruff.lint]
+# Pinned explicitly rather than relying on ruff's defaults, which vary between
+# releases -- an unpinned set makes CI fail on a ruff upgrade rather than on a
+# code change. E/F/W are the pycodestyle and pyflakes core; B (bugbear) catches
+# real defects such as warnings.warn without stacklevel and raise-without-from.
+# The pyupgrade (UP) and future-annotations (FA) families are deliberately left
+# out: they rewrite typing.List -> list and Optional[X] -> X | None, which this
+# package cannot adopt while it targets Python 3.9 at runtime.
+select = ["E", "F", "W", "B"]
+ignore = [
+    "E501",  # line length is black's responsibility
+]
+
+[tool.ruff.lint.per-file-ignores]
+# The package __init__ files re-export their public surface behind
+# try/except ModuleNotFoundError guards so the pure-Python half stays usable
+# when the compiled _core extension is absent. __all__ is assembled at runtime
+# inside those guards, so ruff cannot see the names as re-exports.
+"src/python/pygeostats/__init__.py" = ["F401"]
+"src/python/pygeostats/*/__init__.py" = ["F401"]
+
 [tool.mypy]
 python_version = "3.9"
-warn_return_any = true
 warn_unused_configs = true
+# warn_return_any is off deliberately. scipy, sklearn, geopandas and the rest
+# ship no type information, so nearly every numerical expression is typed Any
+# and this flag alone produced 85 of 223 findings -- noise from the dependency
+# graph, not defects here. Worth turning back on once those returns are
+# annotated. mypy currently reports 138 findings and runs as an advisory step
+# in CI rather than a gate; see .github/workflows/ci.yml.
+
+[[tool.mypy.overrides]]
+# Scientific dependencies that ship no type information. Without these mypy
+# reports an import error per usage and stops before it reaches any real
+# type checking.
+module = [
+    "annoy.*",
+    "bokeh.*",
+    "cupy.*",
+    "geopandas.*",
+    "matplotlib.*",
+    "psutil.*",
+    "scipy.*",
+    "plotly.*",
+    "sklearn.*",
+    "tqdm.*",
+    # numpy.testing and pandas.testing pull in pytest, whose source uses match
+    # statements. With python_version pinned at 3.9 mypy rejects that syntax,
+    # so a library type-check would fail on the test framework's own code.
+    "_pytest.*",
+]
+ignore_missing_imports = true
+# Do not analyse third-party sources. ignore_missing_imports only covers
+# modules mypy cannot find; for an installed but untyped package mypy would
+# otherwise parse its source, and report that package's own errors as ours.
+follow_imports = "skip"
+
+[[tool.mypy.overrides]]
+# _core is the compiled Rust extension, so there is no source for mypy to read.
+# A generated _core.pyi stub would be better and is worth doing separately.
+module = ["pygeostats._core"]
+ignore_missing_imports = true

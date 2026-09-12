@@ -22,18 +22,18 @@ from .processes import (
 from .segregation import compute_spatial_segregation_indices
 
 __all__ = [
-    "nearest_neighbor_distances",
-    "ripley_k_function",
-    "ripley_l_function",
-    "g_function",
+    "cluster_validation_metrics",
+    "compute_spatial_segregation_indices",
     "f_function",
-    "pair_correlation_function",
-    "spatial_dbscan",
+    "g_function",
     "getis_ord_gi_star",
     "kernel_density_estimate",
-    "cluster_validation_metrics",
-    "simulate_poisson_process",
+    "nearest_neighbor_distances",
+    "pair_correlation_function",
+    "ripley_k_function",
+    "ripley_l_function",
     "simulate_cox_process",
     "simulate_marked_poisson_process",
-    "compute_spatial_segregation_indices",
+    "simulate_poisson_process",
+    "spatial_dbscan",
 ]

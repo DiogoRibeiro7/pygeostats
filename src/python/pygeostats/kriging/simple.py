@@ -37,7 +37,7 @@ class SimpleKriging(BaseEstimator, RegressorMixin):
         self,
         coordinates: Union[np.ndarray, gpd.GeoDataFrame, pd.DataFrame],
         values: Union[np.ndarray, pd.Series],
-    ) -> "SimpleKriging":
+    ) -> SimpleKriging:
         """Store known samples for kriging."""
         if not self.variogram.is_fitted_:
             raise ValueError("Variogram must be fitted before kriging")

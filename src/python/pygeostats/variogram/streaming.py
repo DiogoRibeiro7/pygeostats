@@ -3,15 +3,18 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterator, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable, Iterator, Optional, Sequence, Tuple, Union
+from typing import Optional, Tuple, Union
 
 import numpy as np
 import scipy.sparse as sp
 
 from .._core import (
     StreamingVariogramAccumulator as _RustStreamingVariogramAccumulator,
+)
+from .._core import (
     streaming_variogram as _streaming_variogram,
 )
 
@@ -31,7 +34,7 @@ class StreamingVariogramDenseResult:
 
         return np.column_stack([self.centers, self.gamma, self.weights])
 
-    def to_sparse(self) -> "StreamingVariogramSparseResult":
+    def to_sparse(self) -> StreamingVariogramSparseResult:
         """Convert to sparse representation by filtering non-zero bins."""
 
         nonzero = self.weights > 0
@@ -69,19 +72,23 @@ class StreamingVariogramSparseResult:
     def as_array(self) -> np.ndarray:
         """Return stacked columns for dataframe construction."""
 
-        return np.column_stack([
-            self.indices,
-            self.centers,
-            self.gamma,
-            self.weights,
-        ])
+        return np.column_stack(
+            [
+                self.indices,
+                self.centers,
+                self.gamma,
+                self.weights,
+            ]
+        )
 
 
 class StreamingVariogramBuilder:
     """Incremental variogram computation helper."""
 
     def __init__(self, bin_edges: NumericArray):
-        self._acc = _RustStreamingVariogramAccumulator(np.asarray(bin_edges, dtype=float))
+        self._acc = _RustStreamingVariogramAccumulator(
+            np.asarray(bin_edges, dtype=float)
+        )
 
     @property
     def bin_edges(self) -> np.ndarray:
@@ -106,10 +113,14 @@ class StreamingVariogramBuilder:
         if weights is None:
             self._acc.update_pairs(distances, semivariances)
         else:
-            self._acc.update_pairs(distances, semivariances, np.asarray(weights, dtype=float))
+            self._acc.update_pairs(
+                distances, semivariances, np.asarray(weights, dtype=float)
+            )
 
     def add_chunk(self, coords: np.ndarray, values: np.ndarray) -> None:
-        self._acc.update_chunk(np.asarray(coords, dtype=float), np.asarray(values, dtype=float))
+        self._acc.update_chunk(
+            np.asarray(coords, dtype=float), np.asarray(values, dtype=float)
+        )
 
     def add_cross(
         self,
@@ -125,13 +136,15 @@ class StreamingVariogramBuilder:
             np.asarray(values_right, dtype=float),
         )
 
-    def merge(self, other: "StreamingVariogramBuilder") -> None:
+    def merge(self, other: StreamingVariogramBuilder) -> None:
         self._acc.merge(other._acc)
 
     def reset(self) -> None:
         self._acc.reset()
 
-    def finalize(self, sparse: bool = False) -> Union[StreamingVariogramDenseResult, StreamingVariogramSparseResult]:
+    def finalize(
+        self, sparse: bool = False
+    ) -> Union[StreamingVariogramDenseResult, StreamingVariogramSparseResult]:
         if sparse:
             indices, centers, gamma, weights = self._acc.finalize_sparse()
             return StreamingVariogramSparseResult(
@@ -227,7 +240,9 @@ def streaming_variogram_memmap(
 
     coords = memory_map_array(coords_path, shape, dtype=dtype, mode=mode)
     values = memory_map_array(values_path, (shape[0],), dtype=dtype, mode=mode)
-    return streaming_variogram(coords, values, bin_edges, chunk_size=chunk_size, sparse=sparse)
+    return streaming_variogram(
+        coords, values, bin_edges, chunk_size=chunk_size, sparse=sparse
+    )
 
 
 def chunk_indices(n_rows: int, chunk_size: int) -> Iterator[Tuple[int, int]]:
@@ -245,10 +260,8 @@ __all__ = [
     "StreamingVariogramBuilder",
     "StreamingVariogramDenseResult",
     "StreamingVariogramSparseResult",
+    "chunk_indices",
+    "memory_map_array",
     "streaming_variogram",
     "streaming_variogram_memmap",
-    "memory_map_array",
-    "chunk_indices",
 ]
-
-

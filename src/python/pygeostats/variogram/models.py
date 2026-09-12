@@ -1,10 +1,11 @@
 # src/python/pygeostats/variogram/models.py
 """Theoretical variogram models."""
 
-import numpy as np
-from typing import Dict, List, Optional
-from sklearn.base import BaseEstimator
 import warnings
+from typing import Dict, List, Optional
+
+import numpy as np
+from sklearn.base import BaseEstimator
 
 from .._core import fit_variogram_model
 from ..utils.validation import validate_array
@@ -264,7 +265,9 @@ class Variogram(BaseEstimator):
 
         elif self.model == "matern":
             # Simplified Matern with nu=0.5 (exponential)
-            warnings.warn("Matern model using nu=0.5 (equivalent to exponential)")
+            warnings.warn(
+                "Matern model using nu=0.5 (equivalent to exponential)", stacklevel=2
+            )
             return nugget + (sill - nugget) * (1 - np.exp(-h / range_param))
 
         else:

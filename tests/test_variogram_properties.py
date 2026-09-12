@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import numpy as np
 import pytest
-from hypothesis import given, settings, strategies as st
-
+from hypothesis import given, settings
+from hypothesis import strategies as st
 from pygeostats.variogram.empirical import EmpiricalVariogram
 from pygeostats.variogram.models import Variogram
 
@@ -19,8 +19,18 @@ def coordinate_value_sets(draw):
         draw(
             st.lists(
                 st.tuples(
-                    st.floats(min_value=-1.0, max_value=1.0, allow_nan=False, allow_infinity=False),
-                    st.floats(min_value=-1.0, max_value=1.0, allow_nan=False, allow_infinity=False),
+                    st.floats(
+                        min_value=-1.0,
+                        max_value=1.0,
+                        allow_nan=False,
+                        allow_infinity=False,
+                    ),
+                    st.floats(
+                        min_value=-1.0,
+                        max_value=1.0,
+                        allow_nan=False,
+                        allow_infinity=False,
+                    ),
                 ),
                 min_size=n_points,
                 max_size=n_points,
@@ -31,7 +41,9 @@ def coordinate_value_sets(draw):
     values = np.array(
         draw(
             st.lists(
-                st.floats(min_value=-5.0, max_value=5.0, allow_nan=False, allow_infinity=False),
+                st.floats(
+                    min_value=-5.0, max_value=5.0, allow_nan=False, allow_infinity=False
+                ),
                 min_size=n_points,
                 max_size=n_points,
             )

@@ -72,7 +72,9 @@ def leave_one_out_cross_validation(
 
     n = coords.shape[0]
     if n < 3:
-        raise ValueError("leave_one_out_cross_validation requires at least 3 observations")
+        raise ValueError(
+            "leave_one_out_cross_validation requires at least 3 observations"
+        )
 
     predictions = np.zeros(n)
 
@@ -90,7 +92,9 @@ def leave_one_out_cross_validation(
     return CrossValidationResult(predictions, residuals, rmse, r2)
 
 
-def _cluster_labels(coords: Coords, n_clusters: int, random_state: Optional[int]) -> np.ndarray:
+def _cluster_labels(
+    coords: Coords, n_clusters: int, random_state: Optional[int]
+) -> np.ndarray:
     if n_clusters <= 1 or len(coords) <= n_clusters:
         return np.arange(len(coords)) % max(n_clusters, 1)
     kmeans = KMeans(n_clusters=n_clusters, n_init=10, random_state=random_state)
@@ -108,7 +112,9 @@ def spatial_kfold_cross_validation(
     """Cluster-aware spatial k-fold cross-validation."""
 
     if coords.shape[0] < max(n_splits, 3):
-        raise ValueError("spatial_kfold_cross_validation requires more observations than folds")
+        raise ValueError(
+            "spatial_kfold_cross_validation requires more observations than folds"
+        )
 
     labels = _cluster_labels(coords, n_splits, random_state)
     predictions = np.zeros_like(values)

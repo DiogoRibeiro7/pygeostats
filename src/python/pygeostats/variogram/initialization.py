@@ -3,8 +3,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
-from typing import Dict, Iterable, List, Optional, Sequence, Tuple
+from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 
@@ -13,10 +14,10 @@ from .geometry_analysis import SpatialGeometryAnalyzer
 
 __all__ = [
     "AngleEstimationResult",
-    "RangeInitializationResult",
-    "RangeInitializer",
     "EnsembleResult",
     "InitializationEnsemble",
+    "RangeInitializationResult",
+    "RangeInitializer",
     "estimate_rotation_angle",
 ]
 
@@ -86,7 +87,11 @@ class RangeInitializer:
         sill_samples: List[float] = []
         nugget_candidates: List[float] = []
         angles_seen: List[float] = []
-        missing = [angle for angle in self.REQUIRED_DIRECTIONS if angle not in self.directional_results]
+        missing = [
+            angle
+            for angle in self.REQUIRED_DIRECTIONS
+            if angle not in self.directional_results
+        ]
 
         for angle in sorted(self.directional_results.keys()):
             result = self.directional_results[angle]
@@ -105,11 +110,17 @@ class RangeInitializer:
         minor = float(np.min(range_values))
         ratio = major / max(minor, _EPS)
 
-        se = float(np.std(range_values, ddof=1) / np.sqrt(len(range_values))) if len(range_values) > 1 else 0.0
+        se = (
+            float(np.std(range_values, ddof=1) / np.sqrt(len(range_values)))
+            if len(range_values) > 1
+            else 0.0
+        )
         major_bounds = (major - se, major + se)
         minor_bounds = (minor - se, minor + se)
 
-        sill_array = np.asarray([v for v in sill_samples if np.isfinite(v) and v > 0.0], dtype=float)
+        sill_array = np.asarray(
+            [v for v in sill_samples if np.isfinite(v) and v > 0.0], dtype=float
+        )
         if sill_array.size:
             sill_array.sort()
             take = max(int(np.ceil(sill_array.size * 0.3)), 1)
@@ -117,7 +128,9 @@ class RangeInitializer:
         else:
             sill = major
 
-        nugget_array = np.asarray([v for v in nugget_candidates if np.isfinite(v) and v >= 0.0], dtype=float)
+        nugget_array = np.asarray(
+            [v for v in nugget_candidates if np.isfinite(v) and v >= 0.0], dtype=float
+        )
         nugget = float(nugget_array.min()) if nugget_array.size else 0.0
         if nugget > sill:
             nugget = float(max(sill * 0.99, 0.0))
@@ -125,8 +138,12 @@ class RangeInitializer:
         quality_score = ratio / (1.0 + max(se, 1e-12))
         diagnostics = {
             "sample_size": float(len(range_values)),
-            "angle_span": float(np.max(angles_seen) - np.min(angles_seen)) if angles_seen else 0.0,
-            "range_std": float(np.std(range_values, ddof=1)) if len(range_values) > 1 else 0.0,
+            "angle_span": (
+                float(np.max(angles_seen) - np.min(angles_seen)) if angles_seen else 0.0
+            ),
+            "range_std": (
+                float(np.std(range_values, ddof=1)) if len(range_values) > 1 else 0.0
+            ),
             "se": se,
             "missing_directions": float(len(missing)),
         }
@@ -169,12 +186,16 @@ class InitializationEnsemble:
         angles = np.array(sorted(self.directional_results.keys()), dtype=float)
         ranges = _collect_directional_ranges(self.directional_results)
         if ranges.size < 2:
-            ranges = np.asarray([range_init.range_major, range_init.range_minor], dtype=float)
+            ranges = np.asarray(
+                [range_init.range_major, range_init.range_minor], dtype=float
+            )
             angles = np.asarray([0.0, 90.0], dtype=float)
 
         weights = np.ones_like(ranges)
         angle_result = estimate_rotation_angle(angles, ranges, weights)
-        geom = SpatialGeometryAnalyzer(self.coordinates, self.directional_results).analyze()
+        geom = SpatialGeometryAnalyzer(
+            self.coordinates, self.directional_results
+        ).analyze()
 
         method_angles = [
             (angle_result.angle_deg, _confidence_weight(angle_result.confidence)),
@@ -185,23 +206,32 @@ class InitializationEnsemble:
         combined_angle_rad = _weighted_circular_mean(method_angles)
         combined_angle = (np.degrees(combined_angle_rad) + 180.0) % 180.0
 
-        vote_angles = [int(round(angle / 15.0)) * 15 % 180 for angle, _ in method_angles]
+        vote_angles = [
+            int(round(angle / 15.0)) * 15 % 180 for angle, _ in method_angles
+        ]
         vote_counts: Dict[int, int] = {}
         for candidate in vote_angles:
             vote_counts[candidate] = vote_counts.get(candidate, 0) + 1
-        voted_angle = max(vote_counts.items(), key=lambda item: (item[1], -abs(item[0] - combined_angle)))[0]
+        voted_angle = max(
+            vote_counts.items(),
+            key=lambda item: (item[1], -abs(item[0] - combined_angle)),
+        )[0]
         ensemble_angle = (0.6 * combined_angle + 0.4 * voted_angle) % 180.0
 
         grid_angles = np.arange(0.0, 180.0, 15.0)
         grid_records: List[Tuple[float, float]] = []
         angles_rad = np.deg2rad(angles % 180.0)
         for angle_deg in grid_angles:
-            fit = _fit_ellipse_for_phi(np.deg2rad(angle_deg), angles_rad, ranges, np.ones_like(ranges))
+            fit = _fit_ellipse_for_phi(
+                np.deg2rad(angle_deg), angles_rad, ranges, np.ones_like(ranges)
+            )
             if fit is None:
                 continue
             grid_records.append((float(angle_deg), float(fit["sse"])))
         grid_records.sort(key=lambda item: item[1])
-        top_candidates = grid_records[:3] if grid_records else [(float(ensemble_angle), 0.0)]
+        top_candidates = (
+            grid_records[:3] if grid_records else [(float(ensemble_angle), 0.0)]
+        )
 
         quality = float(
             0.4 * _quality_from_confidence(angle_result.confidence)
@@ -242,7 +272,9 @@ def estimate_rotation_angle(
 
     directions = np.asarray(list(directions_deg), dtype=float)
     ranges = np.asarray(list(ranges), dtype=float)
-    assert directions.size == ranges.size, "directions and ranges must share the same length"
+    assert (
+        directions.size == ranges.size
+    ), "directions and ranges must share the same length"
     assert directions.size >= 3, "At least three directional samples required"
     assert np.all(np.isfinite(ranges)), "Directional ranges must be finite"
 
@@ -338,7 +370,9 @@ def _confidence_weight(level: str) -> float:
 
 
 def _strength_weight(label: str) -> float:
-    return {"strong": 2.0, "moderate": 1.3, "weak": 0.8, "isotropic": 0.4}.get(label.lower(), 0.6)
+    return {"strong": 2.0, "moderate": 1.3, "weak": 0.8, "isotropic": 0.4}.get(
+        label.lower(), 0.6
+    )
 
 
 def _quality_from_confidence(level: str) -> float:
@@ -346,7 +380,9 @@ def _quality_from_confidence(level: str) -> float:
 
 
 def _quality_from_strength(label: str) -> float:
-    return {"strong": 1.0, "moderate": 0.8, "weak": 0.6, "isotropic": 0.3}.get(label.lower(), 0.5)
+    return {"strong": 1.0, "moderate": 0.8, "weak": 0.6, "isotropic": 0.3}.get(
+        label.lower(), 0.5
+    )
 
 
 def _weighted_circular_mean(angle_weights: Iterable[Tuple[float, float]]) -> float:
@@ -356,7 +392,11 @@ def _weighted_circular_mean(angle_weights: Iterable[Tuple[float, float]]) -> flo
         angle_rad = np.deg2rad(angle_deg)
         sin_sum += weight * np.sin(2.0 * angle_rad)
         cos_sum += weight * np.cos(2.0 * angle_rad)
-    return 0.5 * np.arctan2(sin_sum, cos_sum) if (sin_sum != 0.0 or cos_sum != 0.0) else 0.0
+    return (
+        0.5 * np.arctan2(sin_sum, cos_sum)
+        if (sin_sum != 0.0 or cos_sum != 0.0)
+        else 0.0
+    )
 
 
 def _collect_directional_ranges(results: Dict[float, DirectionalResult]) -> np.ndarray:

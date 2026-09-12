@@ -3,8 +3,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from math import log
-from typing import Dict, Iterable, Optional, Tuple, Union
+from typing import Dict, Optional, Tuple, Union
 
 import geopandas as gpd
 import numpy as np
@@ -44,7 +45,7 @@ class UniversalKriging(BaseEstimator, RegressorMixin):
         self,
         coordinates: Union[np.ndarray, gpd.GeoDataFrame, pd.DataFrame],
         values: Union[np.ndarray, pd.Series],
-    ) -> "UniversalKriging":
+    ) -> UniversalKriging:
         """Fit the universal kriging model."""
         if not self.variogram.is_fitted_:
             raise ValueError("Variogram must be fitted before kriging")

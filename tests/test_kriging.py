@@ -2,7 +2,6 @@
 
 import numpy as np
 import pytest
-
 from pygeostats.kriging import (
     OrdinaryKriging,
     SimpleKriging,
@@ -11,7 +10,9 @@ from pygeostats.kriging import (
 from pygeostats.variogram import Variogram
 
 
-def _covariance(distance: float, nugget: float, sill: float, range_: float, model: str) -> float:
+def _covariance(
+    distance: float, nugget: float, sill: float, range_: float, model: str
+) -> float:
     if distance == 0.0:
         return sill
     if model == "exponential":
@@ -88,9 +89,7 @@ class TestOrdinaryKriging:
         kriging = OrdinaryKriging(self.variogram)
         kriging.fit(self.known_coords, self.known_values)
 
-        predictions, variance = kriging.predict(
-            self.pred_coords, return_variance=True
-        )
+        predictions, variance = kriging.predict(self.pred_coords, return_variance=True)
 
         assert len(predictions) == len(self.pred_coords)
         assert len(variance) == len(self.pred_coords)

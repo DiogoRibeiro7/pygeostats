@@ -5,15 +5,15 @@ from __future__ import annotations
 import numpy as np
 import pytest
 from numpy.testing import assert_allclose
-from sklearn.metrics import r2_score
-
+from pygeostats.kriging.ordinary import OrdinaryKriging
 from pygeostats.variogram.empirical import EmpiricalVariogram
 from pygeostats.variogram.models import Variogram
-from pygeostats.kriging.ordinary import OrdinaryKriging
+from sklearn.metrics import r2_score
 
 from .gstat_reference import ReferenceDataset, build_reference_datasets
 
 REFERENCE_DATASETS = build_reference_datasets()
+
 
 @pytest.mark.xfail(
     reason="Variogram.fit() does not recover known parameters. Exponential and gaussian collapse to the range lower bound (1e-6) with nugget 0; spherical diverges to sill 1075 and range 1670 against expected 0.8 and 0.45. The Rust fit_variogram_model optimizer needs investigation.",
@@ -27,7 +27,9 @@ def test_variogram_parameter_accuracy(model: str) -> None:
     variogram = Variogram(model=model)
     variogram.fit(ev.distances_, ev.gamma_, weights=ev.counts_)
 
-    expected = np.array([dataset.params.nugget, dataset.params.sill, dataset.params.range])
+    expected = np.array(
+        [dataset.params.nugget, dataset.params.sill, dataset.params.range]
+    )
     fitted = np.array([variogram.nugget_, variogram.sill_, variogram.range_])
     assert_allclose(fitted, expected, rtol=0.01, atol=1e-6)
 

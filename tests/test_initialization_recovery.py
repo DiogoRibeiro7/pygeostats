@@ -10,13 +10,11 @@ from typing import Dict
 
 import numpy as np
 import pytest
-
 from pygeostats.variogram.directional import DirectionalResult
 from pygeostats.variogram.initialization import (
     InitializationEnsemble,
     RangeInitializer,
 )
-
 
 BASE_MAJOR = 0.45
 BASE_MINOR = 0.22

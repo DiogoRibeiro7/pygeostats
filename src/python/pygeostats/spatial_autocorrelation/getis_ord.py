@@ -103,9 +103,13 @@ def global_getis_ord_g(
 
     if permutations > 0:
         rng = np.random.default_rng(random_state)
-        permuted = np.array([_general_g(rng.permutation(x)) for _ in range(permutations)])
+        permuted = np.array(
+            [_general_g(rng.permutation(x)) for _ in range(permutations)]
+        )
         p_two_sided = (
-            np.sum(np.abs(permuted - np.mean(permuted)) >= abs(g_obs - np.mean(permuted)))
+            np.sum(
+                np.abs(permuted - np.mean(permuted)) >= abs(g_obs - np.mean(permuted))
+            )
             + 1.0
         ) / (permutations + 1.0)
         result["p_value"] = float(p_two_sided)

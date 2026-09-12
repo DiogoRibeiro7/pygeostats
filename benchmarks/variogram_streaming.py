@@ -8,10 +8,10 @@ import time
 from pathlib import Path
 
 import numpy as np
-
 from pygeostats.variogram.streaming import (
     StreamingVariogramBuilder,
-    streaming_variogram,
+)
+from pygeostats.variogram.streaming import (
     streaming_variogram_memmap as compute_streaming_variogram_memmap,
 )
 
@@ -55,7 +55,7 @@ def benchmark_streaming_pairs(
 
         _, peak = tracemalloc.get_traced_memory()
         tracemalloc.stop()
-        peak_mem = peak / (1024 ** 2)
+        peak_mem = peak / (1024**2)
 
     result = builder.finalize(sparse=True)
     message = (
@@ -117,4 +117,3 @@ def run_cli() -> None:
 
 if __name__ == "__main__":
     run_cli()
-

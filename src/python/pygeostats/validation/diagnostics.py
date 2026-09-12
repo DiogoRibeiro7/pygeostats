@@ -8,7 +8,6 @@ import numpy as np
 from scipy import stats
 
 from pygeostats.kriging.ordinary import OrdinaryKriging
-from pygeostats.variogram.empirical import EmpiricalVariogram
 
 
 def compute_kriging_residuals(
