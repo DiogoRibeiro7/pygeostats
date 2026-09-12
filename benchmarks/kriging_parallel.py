@@ -3,7 +3,12 @@
 from __future__ import annotations
 
 import argparse
-import time\nfrom pathlib import Path\n\nimport numpy as np\n\nfrom pyspatialstats.kriging import (
+import time
+from pathlib import Path
+
+import numpy as np
+
+from pyspatialstats.kriging import (
     ApproximateNeighborIndex,
     OrdinaryKriging,
     ParallelKrigingExecutor,

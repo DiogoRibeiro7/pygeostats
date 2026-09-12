@@ -10,7 +10,7 @@ from pathlib import Path
 import numpy as np
 
 from pyspatialstats.variogram.streaming import (
-    StreamingVariogramBuilder
+    StreamingVariogramBuilder,
     streaming_variogram,
     streaming_variogram_memmap as compute_streaming_variogram_memmap,
 )

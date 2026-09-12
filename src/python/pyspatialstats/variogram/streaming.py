@@ -103,7 +103,8 @@ class StreamingVariogramBuilder:
     ) -> None:
         distances = np.asarray(distances, dtype=float)
         semivariances = np.asarray(semivariances, dtype=float)
-        if weights is None:\n            self._acc.update_pairs(distances, semivariances)
+        if weights is None:
+            self._acc.update_pairs(distances, semivariances)
         else:
             self._acc.update_pairs(distances, semivariances, np.asarray(weights, dtype=float))
 
