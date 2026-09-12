@@ -7,7 +7,11 @@ from typing import Dict
 
 import numpy as np
 
-from .data_generation import VariogramParameters, _covariance_from_variogram, _euclidean_distance_matrix
+from .data_generation import (
+    VariogramParameters,
+    _covariance_from_variogram,
+    _euclidean_distance_matrix,
+)
 
 
 @dataclass(frozen=True)
@@ -61,7 +65,9 @@ def build_reference_datasets() -> Dict[str, ReferenceDataset]:
         )
     )
     targets = np.array([[0.2, 0.3], [0.7, 0.6], [0.5, 0.9]])
-    predictions = _ordinary_kriging_reference(coords, values, targets, "exponential", expo_params)
+    predictions = _ordinary_kriging_reference(
+        coords, values, targets, "exponential", expo_params
+    )
     datasets["exponential"] = ReferenceDataset(
         coords=coords,
         values=values,
@@ -79,7 +85,9 @@ def build_reference_datasets() -> Dict[str, ReferenceDataset]:
     )
     values = rng.standard_normal(28) @ chol
     targets = np.array([[0.1, 0.8], [0.4, 0.4]])
-    predictions = _ordinary_kriging_reference(coords, values, targets, "spherical", sph_params)
+    predictions = _ordinary_kriging_reference(
+        coords, values, targets, "spherical", sph_params
+    )
     datasets["spherical"] = ReferenceDataset(
         coords=coords,
         values=values,
@@ -97,7 +105,9 @@ def build_reference_datasets() -> Dict[str, ReferenceDataset]:
     chol = np.linalg.cholesky(cov)
     values = rng.standard_normal(22) @ chol
     targets = np.array([[0.3, 0.2], [0.6, 0.1], [0.8, 0.8]])
-    predictions = _ordinary_kriging_reference(coords, values, targets, "gaussian", gau_params)
+    predictions = _ordinary_kriging_reference(
+        coords, values, targets, "gaussian", gau_params
+    )
     datasets["gaussian"] = ReferenceDataset(
         coords=coords,
         values=values,
@@ -108,6 +118,3 @@ def build_reference_datasets() -> Dict[str, ReferenceDataset]:
     )
 
     return datasets
-
-
-

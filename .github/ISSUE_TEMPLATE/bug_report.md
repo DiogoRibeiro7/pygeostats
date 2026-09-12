@@ -37,7 +37,7 @@ What actually happened (include error messages and stack trace).
 - Python version: [e.g. 3.11.5]
 - Rust version (`rustc --version`):
 - BLAS/LAPACK: [OpenBLAS/MKL/etc.]
-- PySpatialStats version (`pip show pyspatialstats`):
+- PySpatialStats version (`pip show pygeostats`):
 
 # Additional Context
 

@@ -1,16 +1,15 @@
 # examples/anisotropic_kriging_example.py
 """Comprehensive examples of anisotropic variogram analysis and kriging."""
 
-import numpy as np
 import matplotlib.pyplot as plt
-from sklearn.metrics import r2_score, mean_squared_error
-
-from pyspatialstats.variogram import DirectionalVariogram, Variogram
-from pyspatialstats.kriging.anisotropic import (
+import numpy as np
+from pygeostats.kriging import OrdinaryKriging  # For comparison
+from pygeostats.kriging.anisotropic import (
     AnisotropicKriging,
     create_anisotropic_variogram_from_directional,
 )
-from pyspatialstats.kriging import OrdinaryKriging  # For comparison
+from pygeostats.variogram import DirectionalVariogram, Variogram
+from sklearn.metrics import mean_squared_error, r2_score
 
 
 def generate_anisotropic_data(
@@ -123,7 +122,7 @@ def example_1_basic_anisotropic_analysis():
         sill=1.2,
     )
 
-    print(f"Generated data with true parameters:")
+    print("Generated data with true parameters:")
     for key, value in true_params.items():
         print(f"  {key}: {value:.3f}")
     print()
@@ -228,16 +227,16 @@ def example_3_cross_validation_comparison():
 
     print("\nCross-validation Results:")
     print("-" * 30)
-    print(f"Anisotropic Kriging:")
+    print("Anisotropic Kriging:")
     print(f"  RMSE: {aniso_rmse:.4f}")
     print(f"  R²: {aniso_r2:.4f}")
     print(f"  Mean Variance: {mean_aniso_var:.4f}")
     print()
-    print(f"Isotropic Kriging:")
+    print("Isotropic Kriging:")
     print(f"  RMSE: {iso_rmse:.4f}")
     print(f"  R²: {iso_r2:.4f}")
     print()
-    print(f"Improvement:")
+    print("Improvement:")
     print(f"  RMSE reduction: {((iso_rmse - aniso_rmse) / iso_rmse * 100):.1f}%")
     print(f"  R² increase: {((aniso_r2 - iso_r2) / iso_r2 * 100):.1f}%")
     print()
@@ -412,7 +411,7 @@ def example_4_real_world_workflow():
 
     # Use most conservative threshold
     final_anisotropy = anisotropy_results[0]  # threshold = 1.2
-    print(f"\nFinal anisotropy assessment:")
+    print("\nFinal anisotropy assessment:")
     print(f"  Is anisotropic: {final_anisotropy.is_anisotropic}")
     print(f"  Major direction: {final_anisotropy.major_direction:.1f}°")
     print(f"  Anisotropy ratio: {final_anisotropy.anisotropy_ratio:.2f}")
@@ -506,7 +505,7 @@ def example_4_real_world_workflow():
     ax1.set_ylabel("Y")
 
     # Add anisotropy ellipse
-    from pyspatialstats.kriging.anisotropic import plot_anisotropy_ellipse
+    from pygeostats.kriging.anisotropic import plot_anisotropy_ellipse
 
     plot_anisotropy_ellipse(best_kriging, center=(7.5, 7.5), scale=0.5, ax=ax1)
 

@@ -1,10 +1,14 @@
 [package]
-name = "pyspatialstats"
+name = "pygeostats"
 version = "0.1.0"
 edition = "2021"
+description = "Rust core for the pygeostats Python package: variogram estimation and fitting, kriging, and distance kernels"
+license = "MIT"
+repository = "https://github.com/DiogoRibeiro7/pygeostats"
+readme = "README.md"
 
 [lib]
-name = "pyspatialstats"
+name = "pygeostats"
 crate-type = ["cdylib"]
 path = "src/rust/src/lib.rs"
 
@@ -15,12 +19,21 @@ parallel = []
 sparse = []
 
 [dependencies]
-pyo3 = { version = "0.20", features = ["extension-module"] }
-numpy = "0.20"
+pyo3 = { version = "0.29", features = ["extension-module", "abi3-py39"] }
+numpy = "0.29"
 ndarray = { version = "0.15", features = ["rayon"] }
 rayon = "1.7"
 nalgebra = "0.32"
 approx = "0.5"
+
+[lints.clippy]
+# Variogram and kriging kernels legitimately take many scalar parameters
+# (nugget, sill, range_major, range_minor, angle, bins, ...) and hand back
+# tuples of several arrays across the FFI boundary. Splitting them up to
+# satisfy these two lints would obscure the mathematics without making the
+# code any safer, so they are allowed deliberately rather than case by case.
+too_many_arguments = "allow"
+type_complexity = "allow"
 
 [profile.release]
 lto = true

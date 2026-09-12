@@ -1,6 +1,6 @@
 # Distance Benchmark Summary
 
-To quantify the effect of the new SIMD, parallel chunking, and sparse backends in pyspatialstats._core.euclidean_distances, use the helper script benchmarks/benchmark_distances.py.
+To quantify the effect of the new SIMD, parallel chunking, and sparse backends in pygeostats._core.euclidean_distances, use the helper script benchmarks/benchmark_distances.py.
 
 Run:
 

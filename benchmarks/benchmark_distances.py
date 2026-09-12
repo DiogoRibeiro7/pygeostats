@@ -4,12 +4,12 @@ from __future__ import annotations
 
 import argparse
 import time
+from collections.abc import Iterable
 from dataclasses import dataclass
-from typing import Callable, Iterable, List, Tuple
+from typing import Callable, List, Tuple
 
 import numpy as np
-
-from pyspatialstats import _core
+from pygeostats import _core
 
 
 @dataclass
@@ -32,7 +32,9 @@ def generate_points(size: int, dims: int) -> np.ndarray:
     return rng.random((size, dims))
 
 
-def run_benchmarks(scenarios: Iterable[Scenario], dims: int, threshold: float | None) -> List[Tuple[str, float, float, float]]:
+def run_benchmarks(
+    scenarios: Iterable[Scenario], dims: int, threshold: float | None
+) -> List[Tuple[str, float, float, float]]:
     results: List[Tuple[str, float, float, float]] = []
 
     for scenario in scenarios:
@@ -63,9 +65,7 @@ def format_table(rows: Iterable[Tuple[str, float, float, float]]) -> str:
     underline = "-" * len(header)
     body = [header, underline]
     for label, dense, no_simd, sparse in rows:
-        body.append(
-            f"{label:<8} | {dense:>10.4f} | {no_simd:>18.4f} | {sparse:>20.4f}"
-        )
+        body.append(f"{label:<8} | {dense:>10.4f} | {no_simd:>18.4f} | {sparse:>20.4f}")
     return "\n".join(body)
 
 
@@ -97,4 +97,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

@@ -3,38 +3,51 @@
 from __future__ import annotations
 
 import argparse
-import time\nfrom pathlib import Path\n\nimport numpy as np\n\nfrom pyspatialstats.kriging import (
+import time
+from pathlib import Path
+
+import numpy as np
+from pygeostats.kriging import (
     ApproximateNeighborIndex,
     OrdinaryKriging,
     ParallelKrigingExecutor,
 )
-from pyspatialstats.variogram import Variogram
+from pygeostats.variogram import Variogram
 
 
 def synthetic_data(n_known: int, n_pred: int, dims: int = 2):
     rng = np.random.default_rng(13)
     known_coords = rng.random((n_known, dims)) * 1000.0
     pred_coords = rng.random((n_pred, dims)) * 1000.0
-    kernel = np.exp(-np.linalg.norm(known_coords[:, None, :] - known_coords[None, :, :], axis=-1) / 200.0)
+    kernel = np.exp(
+        -np.linalg.norm(known_coords[:, None, :] - known_coords[None, :, :], axis=-1)
+        / 200.0
+    )
     values = rng.normal(size=n_known)
     return known_coords, values, pred_coords
 
 
 def fit_variogram(known_coords: np.ndarray, values: np.ndarray) -> Variogram:
     variogram = Variogram(model="exponential")
-    distances = np.linalg.norm(known_coords[:, None, :] - known_coords[None, :, :], axis=-1)
+    distances = np.linalg.norm(
+        known_coords[:, None, :] - known_coords[None, :, :], axis=-1
+    )
     gamma = 0.5 * (values[:, None] - values[None, :]) ** 2
     mask = np.triu(np.ones_like(distances), k=1).astype(bool)
     variogram.fit(distances[mask], gamma[mask])
     return variogram
 
 
-def throughput_benchmark(n_known: int, n_pred: int, neighbors: int, chunk_size: int) -> None:
+def throughput_benchmark(
+    n_known: int, n_pred: int, neighbors: int, chunk_size: int
+) -> None:
     known_coords, values, pred_coords = synthetic_data(n_known, n_pred)
     variogram = fit_variogram(known_coords, values)
     ok = OrdinaryKriging(variogram).fit(known_coords, values)
 
-    params = np.array([variogram.nugget_, variogram.sill_, variogram.range_], dtype=float)
+    params = np.array(
+        [variogram.nugget_, variogram.sill_, variogram.range_], dtype=float
+    )
     executor = ParallelKrigingExecutor(known_coords, values, params, variogram.model)
     index = ApproximateNeighborIndex(known_coords)
 
@@ -62,7 +75,9 @@ def resilience_benchmark(n_known: int, n_pred: int, checkpoint: Path) -> None:
     known_coords, values, pred_coords = synthetic_data(n_known, n_pred)
     variogram = fit_variogram(known_coords, values)
 
-    params = np.array([variogram.nugget_, variogram.sill_, variogram.range_], dtype=float)
+    params = np.array(
+        [variogram.nugget_, variogram.sill_, variogram.range_], dtype=float
+    )
     executor = ParallelKrigingExecutor(known_coords, values, params, variogram.model)
     index = ApproximateNeighborIndex(known_coords)
 
@@ -81,7 +96,9 @@ def resilience_benchmark(n_known: int, n_pred: int, checkpoint: Path) -> None:
         checkpoint_interval=1,
         progress=False,
     )
-    print(f"resilience | completed predictions={np.count_nonzero(~np.isnan(preds_half)):,}")
+    print(
+        f"resilience | completed predictions={np.count_nonzero(~np.isnan(preds_half)):,}"
+    )
 
     # Resume from checkpoint
     preds_full = executor.predict(
@@ -98,12 +115,16 @@ def resilience_benchmark(n_known: int, n_pred: int, checkpoint: Path) -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Parallel kriging benchmarks")
-    parser.add_argument("mode", choices=["throughput", "resilience"], default="throughput")
+    parser.add_argument(
+        "mode", choices=["throughput", "resilience"], default="throughput"
+    )
     parser.add_argument("--known", type=int, default=50_000)
     parser.add_argument("--pred", type=int, default=200_000)
     parser.add_argument("--neighbors", type=int, default=64)
     parser.add_argument("--chunk", type=int, default=10_000)
-    parser.add_argument("--checkpoint", type=Path, default=Path("kriging_checkpoint.npz"))
+    parser.add_argument(
+        "--checkpoint", type=Path, default=Path("kriging_checkpoint.npz")
+    )
     args = parser.parse_args()
 
     if args.mode == "throughput":
@@ -114,4 +135,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-
