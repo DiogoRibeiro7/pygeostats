@@ -179,7 +179,9 @@ Please include:
 - [ ] Code follows style guides; public APIs fully typed
 - [ ] Inline comments explain non-obvious logic; docstrings updated
 - [ ] Lint/format pass: `black`, `ruff`, `mypy`
-- [ ] Rust checks pass: `cargo fmt`, `cargo clippy`, `cargo test`
+- [ ] Rust checks pass: `cargo fmt --all -- --check`, `cargo clippy --all-targets -- -D warnings`, and
+      `cargo test --no-default-features --features parallel` (the flags matter: `extension-module`
+      stops libpython being linked, so a plain `cargo test` fails to link on Linux and macOS)
 - [ ] Tests added/updated; coverage not reduced
 - [ ] Docs updated and `make -C docs html` succeeds
 - [ ] Benchmarks run for core numeric changes; results included

@@ -35,12 +35,16 @@ dependencies = [
     "geopandas>=0.10.0",
     "scikit-learn>=1.0.0",
     "matplotlib>=3.5.0",
+    "psutil>=5.9.0",
 ]
 
 [project.urls]
 Repository = "https://github.com/DiogoRibeiro7/pygeostats"
 Issues = "https://github.com/DiogoRibeiro7/pygeostats/issues"
 
+# cupy is deliberately not declared as an extra: the correct distribution
+# depends on the installed CUDA version (cupy-cuda12x, cupy-cuda11x, ...) and
+# has to be chosen by the user. acceleration/gpu.py degrades without it.
 [project.optional-dependencies]
 dev = [
     "pytest>=7.0",
@@ -53,6 +57,9 @@ dev = [
     "nbsphinx",
     "jupyter",
 ]
+approx = ["annoy>=1.17"]       # ApproximateNeighborIndex backend
+progress = ["tqdm>=4.60"]      # progress bars in the parallel executors
+plotting = ["plotly>=5.0"]     # interactive plots alongside matplotlib
 test = [
     "pytest>=7.0",
     "pytest-benchmark",

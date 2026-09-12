@@ -13,13 +13,19 @@ crate-type = ["cdylib"]
 path = "src/rust/src/lib.rs"
 
 [features]
-default = ["parallel"]
+# extension-module tells the linker not to link libpython, which is correct for
+# the cdylib but leaves a `cargo test` binary full of undefined Python symbols
+# on Linux and macOS. Keeping it behind a default-on feature lets tests build
+# with `--no-default-features --features parallel`, which links libpython.
+# Windows links libpython either way, which is why this only shows up in CI.
+default = ["extension-module", "parallel"]
+extension-module = ["pyo3/extension-module"]
 simd = []
 parallel = []
 sparse = []
 
 [dependencies]
-pyo3 = { version = "0.29", features = ["extension-module", "abi3-py39"] }
+pyo3 = { version = "0.29", features = ["abi3-py39"] }
 numpy = "0.29"
 ndarray = { version = "0.15", features = ["rayon"] }
 rayon = "1.7"
