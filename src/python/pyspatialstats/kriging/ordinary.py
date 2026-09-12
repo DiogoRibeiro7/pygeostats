@@ -2,12 +2,15 @@
 """Ordinary kriging implementation."""
 
 import numpy as np
+from pathlib import Path
 from typing import Optional, Union, Tuple
 import geopandas as gpd
 import pandas as pd
 from sklearn.base import BaseEstimator, RegressorMixin
 
 from .._core import ordinary_kriging_predict, kriging_variance
+from .executor import ParallelKrigingExecutor, spatial_tiles
+from .neighbor_search import ApproximateNeighborIndex
 from ..utils.validation import validate_coordinates, validate_values
 from ..variogram.models import Variogram
 
