@@ -1127,6 +1127,7 @@ fn run_levenberg_marquardt_internal(
     let mut trace: Vec<IterationTraceRecord> = Vec::new();
     let mut warnings: Vec<String> = Vec::new();
     let mut gradient_norm = f64::INFINITY;
+    let mut current_jtr = vec![0.0f64; param_count];
     let mut evaluations_total = 0usize;
     let mut stagnation_counter = 0usize;
 
@@ -1164,6 +1165,7 @@ fn run_levenberg_marquardt_internal(
         evaluations_total += eval_count;
         diagnostics.lambda = lambda;
         gradient_norm = current_grad_norm;
+        current_jtr.clone_from(&jtr);
 
         if !cost.is_finite() {
             status = OptimizationStatus::InvalidParameters;
@@ -1190,6 +1192,15 @@ fn run_levenberg_marquardt_internal(
             candidate[param_idx] += delta[offset];
         }
         enforce_bounds(&mut candidate, anisotropic);
+        // The step actually taken, after bound clipping. At an optimum on a bound
+        // the raw LM step keeps pointing out of the feasible set and never
+        // shrinks, so convergence is judged on this rather than on step_norm.
+        let effective_step = candidate
+            .iter()
+            .zip(params_vec.iter())
+            .map(|(c, p)| (c - p) * (c - p))
+            .sum::<f64>()
+            .sqrt();
 
         let candidate_slice = if adaptive.using_full {
             AdaptiveSlice::Full
@@ -1199,7 +1210,7 @@ fn run_levenberg_marquardt_internal(
         let (
             candidate_cost,
             candidate_jtj,
-            _candidate_jtr,
+            candidate_jtr,
             candidate_grad_norm,
             eval_count_candidate,
         ) = evaluation_cache.evaluate(model, anisotropic, &dataset, &candidate, candidate_slice)?;
@@ -1232,6 +1243,7 @@ fn run_levenberg_marquardt_internal(
         if improvement > 0.0 {
             params_vec = candidate;
             gradient_norm = candidate_grad_norm;
+            current_jtr.clone_from(&candidate_jtr);
             best_cost = candidate_cost;
             best_params = params_vec.clone();
             best_jtj = candidate_jtj.clone();
@@ -1248,7 +1260,14 @@ fn run_levenberg_marquardt_internal(
                 adaptive.promote();
             }
 
-            if step_norm < STEP_TOL && improvement.abs() < COST_TOL && gradient_norm < GRADIENT_TOL
+            if projected_gradient_converged(
+                &current_jtr,
+                &params_vec,
+                &free_indices,
+                anisotropic,
+                candidate_cost,
+            ) && (effective_step < STEP_TOL
+                || improvement.abs() <= COST_TOL * candidate_cost.abs().max(1.0))
             {
                 status = OptimizationStatus::Succeeded;
                 break;
@@ -1260,12 +1279,33 @@ fn run_levenberg_marquardt_internal(
                 adaptive.promote();
             }
             if lambda >= MAX_LAMBDA {
-                status = OptimizationStatus::SingularMatrix;
+                // No step improves the cost. If the current point already
+                // satisfies first-order optimality that is convergence, not a
+                // singular system.
+                status = if projected_gradient_converged(
+                    &current_jtr,
+                    &params_vec,
+                    &free_indices,
+                    anisotropic,
+                    cost,
+                ) {
+                    OptimizationStatus::Succeeded
+                } else {
+                    OptimizationStatus::SingularMatrix
+                };
                 break;
             }
         }
 
-        if gradient_norm < GRADIENT_TOL && step_norm < STEP_TOL {
+        if effective_step < STEP_TOL
+            && projected_gradient_converged(
+                &current_jtr,
+                &params_vec,
+                &free_indices,
+                anisotropic,
+                cost,
+            )
+        {
             status = OptimizationStatus::Succeeded;
             break;
         }
@@ -1283,6 +1323,20 @@ fn run_levenberg_marquardt_internal(
     } else {
         params_vec.clone()
     };
+
+    // A range on its floor makes the model constant over every observed lag and
+    // its derivative underflows to exactly zero, so the optimality test passes
+    // vacuously. That is not a fit.
+    if !anisotropic
+        && status.is_success()
+        && final_params.len() >= 3
+        && final_params[2] <= MIN_RANGE * (1.0 + 1e-9)
+    {
+        status = OptimizationStatus::InvalidParameters;
+        warnings.push(String::from(
+            "Range collapsed to its lower bound: the model is constant across every observed lag",
+        ));
+    }
 
     let final_cost = if best_cost.is_finite() {
         best_cost
@@ -1742,6 +1796,38 @@ fn solve_linear_system(mut matrix: Vec<Vec<f64>>, mut rhs: Vec<f64>) -> Option<V
     }
 
     Some(solution)
+}
+
+/// First-order optimality test for the box-constrained least-squares problem.
+///
+/// `jtr` is the gradient of 0.5 * SSE, and the step solves for -jtr, so a
+/// component whose parameter sits on its lower bound with a positive gradient
+/// points out of the feasible set and is excluded. Without that projection an
+/// optimum with the nugget at zero never passes, and correct fits ran all 250
+/// iterations to report max_iterations. The tolerance scales with the cost
+/// because the gradient scales with the bin weights, pair counts in the
+/// thousands, against which a fixed absolute threshold is unreachable.
+fn projected_gradient_converged(
+    jtr: &[f64],
+    params: &[f64],
+    free_indices: &[usize],
+    anisotropic: bool,
+    cost: f64,
+) -> bool {
+    let at_lower_bound = |idx: usize| -> bool {
+        match idx {
+            0 => params[0] <= 0.0,
+            1 => params[1] <= params[0] + 2.0 * MIN_SILL_GAP,
+            2 if !anisotropic => params[2] <= MIN_RANGE * (1.0 + 1e-9),
+            _ => false,
+        }
+    };
+    let norm_sq: f64 = free_indices
+        .iter()
+        .filter(|&&idx| !(at_lower_bound(idx) && jtr[idx] > 0.0))
+        .map(|&idx| jtr[idx] * jtr[idx])
+        .sum();
+    norm_sq.sqrt() <= GRADIENT_TOL * cost.abs().max(1.0)
 }
 
 fn enforce_bounds(params: &mut [f64], anisotropic: bool) {
