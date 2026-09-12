@@ -392,8 +392,7 @@ impl TrendType {
             "linear" => Ok(Self::Linear),
             "quadratic" => Ok(Self::Quadratic),
             other => Err(PyValueError::new_err(format!(
-                "Unsupported trend type '{}'. Expected 'linear' or 'quadratic'",
-                other
+                "Unsupported trend type '{other}'. Expected 'linear' or 'quadratic'"
             ))),
         }
     }

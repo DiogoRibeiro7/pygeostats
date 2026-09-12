@@ -14,7 +14,6 @@ use crate::utils::euclidean_distance_single;
 const MIN_RANGE: f64 = 1e-6;
 const MIN_SILL_GAP: f64 = 1e-9;
 const MAX_LAMBDA: f64 = 1e12;
-const PARAM_TOL: f64 = 1e-6;
 const COST_TOL: f64 = 1e-9;
 const GRADIENT_TOL: f64 = 1e-6;
 const STEP_TOL: f64 = 1e-6;
@@ -54,8 +53,6 @@ struct ConstraintManager {
     messages: Vec<String>,
     ratio_warnings_emitted: usize,
 }
-
-const MAX_CONSTRAINT_MESSAGES: usize = 8;
 
 #[pyclass(from_py_object)]
 #[derive(Clone)]
@@ -172,7 +169,11 @@ impl StreamingVariogramAccumulator {
     pub fn finalize_dense<'py>(
         &self,
         py: Python<'py>,
-    ) -> PyResult<(Bound<'py, PyArray1<f64>>, Bound<'py, PyArray1<f64>>, Bound<'py, PyArray1<f64>>)> {
+    ) -> PyResult<(
+        Bound<'py, PyArray1<f64>>,
+        Bound<'py, PyArray1<f64>>,
+        Bound<'py, PyArray1<f64>>,
+    )> {
         let (centers, gamma, weights) = self.dense_components();
         Ok((
             Array1::from_vec(centers).into_pyarray(py),
@@ -369,6 +370,10 @@ impl IterationTraceRecord {
     }
 }
 
+// Diverged and Failed are never constructed: the optimizer does not yet detect
+// divergence or hard failure. That gap is related to the variogram fitting
+// defects tracked by the xfails in tests/test_variogram_accuracy.py.
+#[allow(dead_code)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum OptimizationStatus {
     Succeeded,
@@ -504,7 +509,11 @@ pub fn empirical_variogram<'py>(
     coords: PyReadonlyArray2<f64>,
     values: PyReadonlyArray1<f64>,
     bins: PyReadonlyArray1<f64>,
-) -> PyResult<(Bound<'py, PyArray1<f64>>, Bound<'py, PyArray1<f64>>, Bound<'py, PyArray1<i32>>)> {
+) -> PyResult<(
+    Bound<'py, PyArray1<f64>>,
+    Bound<'py, PyArray1<f64>>,
+    Bound<'py, PyArray1<i32>>,
+)> {
     let coords = coords.as_array();
     let values = values.as_array();
     let bins = bins.as_array();
@@ -571,8 +580,7 @@ impl VariogramModel {
             "spherical" => Ok(Self::Spherical),
             "gaussian" => Ok(Self::Gaussian),
             _ => Err(PyValueError::new_err(format!(
-                "Unsupported variogram model '{}'. Expected one of: exponential, spherical, gaussian",
-                model_type
+                "Unsupported variogram model '{model_type}'. Expected one of: exponential, spherical, gaussian"
             ))),
         }
     }
@@ -629,9 +637,7 @@ pub fn fit_variogram_model<'py>(
     }
 
     if weights_vec.iter().all(|w| *w <= 0.0) {
-        for w in &mut weights_vec {
-            *w = 1.0;
-        }
+        weights_vec.fill(1.0);
     }
 
     if weights_vec.iter().any(|w| *w < 0.0) {
@@ -1008,6 +1014,8 @@ impl EvaluationCache {
     }
 }
 
+// `angle` is retained next to its precomputed cos/sin for readability
+#[allow(dead_code)]
 struct AnisotropicIterationContext {
     nugget: f64,
     sill: f64,
@@ -1054,7 +1062,7 @@ fn compute_timeout(sample_count: usize) -> Duration {
 fn run_levenberg_marquardt(
     model: VariogramModel,
     dataset: Dataset,
-    params: &mut Vec<f64>,
+    params: &mut [f64],
     fix_mask: &[bool],
     anisotropic: bool,
 ) -> PyResult<OptimizationSummary> {
@@ -1064,7 +1072,7 @@ fn run_levenberg_marquardt(
 fn run_levenberg_marquardt_internal(
     model: VariogramModel,
     dataset: Dataset,
-    params: &mut Vec<f64>,
+    params: &mut [f64],
     fix_mask: &[bool],
     anisotropic: bool,
     allow_fallback: bool,
@@ -1116,11 +1124,10 @@ fn run_levenberg_marquardt_internal(
     let mut lambda = 1e-3;
     let mut iterations = 0usize;
     let mut status = OptimizationStatus::MaxIterations;
-    let mut params_vec = params.clone();
+    let mut params_vec = params.to_vec();
     let mut best_params = params_vec.clone();
     let mut best_cost = f64::INFINITY;
     let mut best_jtj = vec![vec![0.0f64; param_count]; param_count];
-    let mut best_jtr = vec![0.0f64; param_count];
     let mut trace: Vec<IterationTraceRecord> = Vec::new();
     let mut warnings: Vec<String> = Vec::new();
     let mut gradient_norm = f64::INFINITY;
@@ -1196,7 +1203,7 @@ fn run_levenberg_marquardt_internal(
         let (
             candidate_cost,
             candidate_jtj,
-            candidate_jtr,
+            _candidate_jtr,
             candidate_grad_norm,
             eval_count_candidate,
         ) = evaluation_cache.evaluate(model, anisotropic, &dataset, &candidate, candidate_slice)?;
@@ -1232,7 +1239,6 @@ fn run_levenberg_marquardt_internal(
             best_cost = candidate_cost;
             best_params = params_vec.clone();
             best_jtj = candidate_jtj.clone();
-            best_jtr = candidate_jtr.clone();
             diagnostics.step_norm = step_norm;
             stagnation_counter = if improvement < COST_TOL {
                 stagnation_counter + 1
@@ -1273,7 +1279,7 @@ fn run_levenberg_marquardt_internal(
     }
 
     if status == OptimizationStatus::MaxIterations && iterations >= MAX_ITERATIONS {
-        warnings.push(format!("Reached maximum iterations ({})", MAX_ITERATIONS));
+        warnings.push(format!("Reached maximum iterations ({MAX_ITERATIONS})"));
     }
 
     let final_params = if best_cost.is_finite() {
@@ -1357,7 +1363,7 @@ fn run_levenberg_marquardt_internal(
             || summary
                 .diagnostics
                 .isotropic_r2
-                .map_or(false, |iso_r2| iso_r2 > summary.r_squared + 1e-6);
+                .is_some_and(|iso_r2| iso_r2 > summary.r_squared + 1e-6);
 
         if fallback_needed {
             match attempt_isotropic_fallback(model, &dataset, fix_mask, &final_params, &summary) {
@@ -1372,7 +1378,7 @@ fn run_levenberg_marquardt_internal(
                 Err(err) => {
                     summary
                         .warnings
-                        .push(format!("Isotropic fallback failed: {}", err));
+                        .push(format!("Isotropic fallback failed: {err}"));
                 }
             }
         }
@@ -1399,7 +1405,7 @@ fn attempt_isotropic_fallback(
 
     let mut iso_initial = vec![nugget, sill, range_iso];
     let mut iso_fix_mask = vec![false; 3];
-    iso_fix_mask[0] = fix_mask.get(0).copied().unwrap_or(false);
+    iso_fix_mask[0] = fix_mask.first().copied().unwrap_or(false);
     iso_fix_mask[1] = fix_mask.get(1).copied().unwrap_or(false);
     iso_fix_mask[2] = if fix_mask.len() >= 4 {
         fix_mask[2] && fix_mask[3]
@@ -1426,10 +1432,7 @@ fn attempt_isotropic_fallback(
         false,
     );
 
-    let mut fallback_summary = match fallback_result {
-        Ok(summary) => summary,
-        Err(err) => return Err(err),
-    };
+    let mut fallback_summary = fallback_result?;
 
     if fallback_summary.parameters.len() >= 3 {
         let iso_params = fallback_summary.parameters.clone();
@@ -1524,7 +1527,7 @@ fn compute_parameter_std(
             std[i] = 0.0;
             continue;
         }
-        let matrix: Vec<Vec<f64>> = jtj.iter().map(|row| row.clone()).collect();
+        let matrix: Vec<Vec<f64>> = jtj.to_vec();
         let mut rhs = vec![0.0; n];
         rhs[i] = 1.0;
         if let Some(sol) = solve_linear_system(matrix, rhs) {
@@ -1695,6 +1698,8 @@ fn solve_linear_system(mut matrix: Vec<Vec<f64>>, mut rhs: Vec<f64>) -> Option<V
     for i in 0..n {
         let mut pivot = i;
         let mut max_value = matrix[i][i].abs();
+        // the index itself is the value being selected (the pivot row)
+        #[allow(clippy::needless_range_loop)]
         for row in i + 1..n {
             let candidate = matrix[row][i].abs();
             if candidate > max_value {
@@ -1725,6 +1730,8 @@ fn solve_linear_system(mut matrix: Vec<Vec<f64>>, mut rhs: Vec<f64>) -> Option<V
     let mut solution = vec![0.0f64; n];
     for i in (0..n).rev() {
         let mut value = rhs[i];
+        // back-substitution walks two arrays in step by index
+        #[allow(clippy::needless_range_loop)]
         for col in i + 1..n {
             value -= matrix[i][col] * solution[col];
         }
@@ -1745,20 +1752,16 @@ fn enforce_bounds(params: &mut [f64], anisotropic: bool) {
     if params[0] < 0.0 {
         params[0] = 0.0;
     }
-    if params.len() >= 2 {
-        if params[1] <= params[0] + MIN_SILL_GAP {
-            params[1] = params[0] + MIN_SILL_GAP;
-        }
+    if params.len() >= 2 && params[1] <= params[0] + MIN_SILL_GAP {
+        params[1] = params[0] + MIN_SILL_GAP;
     }
     if anisotropic {
         // No clamp required for log-ranges; ensure finite angle
         if !params[4].is_finite() {
             params[4] = 0.0;
         }
-    } else if params.len() >= 3 {
-        if params[2] < MIN_RANGE {
-            params[2] = MIN_RANGE;
-        }
+    } else if params.len() >= 3 && params[2] < MIN_RANGE {
+        params[2] = MIN_RANGE;
     }
 }
 
@@ -1773,7 +1776,7 @@ fn compute_statistics(
         return (1.0, 0.0);
     }
 
-    let directions_opt = dataset.directions.as_ref().map(|v| v.as_slice());
+    let directions_opt = dataset.directions.as_deref();
 
     let mut effective_weights = Vec::with_capacity(n);
     let mut total_weight = 0.0;
@@ -1803,7 +1806,7 @@ fn compute_statistics(
         if weight <= 0.0 {
             continue;
         }
-        let direction = directions_opt.and_then(|dirs| Some(dirs[i]));
+        let direction = directions_opt.map(|dirs| dirs[i]);
         let prediction =
             predict_value(model, anisotropic, params, distance, direction).unwrap_or(gamma_obs);
         let diff = prediction - gamma_obs;

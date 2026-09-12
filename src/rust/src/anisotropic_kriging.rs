@@ -27,7 +27,7 @@ pub fn anisotropic_kriging_predict<'py>(
     // Validate inputs
     if known_coords.ncols() != 2 || pred_coords.ncols() != 2 {
         return Err(PyValueError::new_err(
-            "Anisotropic kriging requires 2D coordinates"
+            "Anisotropic kriging requires 2D coordinates",
         ));
     }
 
@@ -72,19 +72,16 @@ pub fn anisotropic_kriging_predict<'py>(
                 cos_theta,
                 sin_theta,
             );
-            cov_matrix[(i, j)] = anisotropic_covariance(
-                aniso_distance,
-                nugget,
-                sill,
-                model_type,
-            )?;
+            cov_matrix[(i, j)] = anisotropic_covariance(aniso_distance, nugget, sill, model_type)?;
         }
     }
 
     // Set up kriging system with unbiasedness constraint
     let mut system_matrix = DMatrix::<f64>::zeros(n_known + 1, n_known + 1);
-    system_matrix.view_mut((0, 0), (n_known, n_known)).copy_from(&cov_matrix);
-    
+    system_matrix
+        .view_mut((0, 0), (n_known, n_known))
+        .copy_from(&cov_matrix);
+
     // Add unbiasedness constraint
     for i in 0..n_known {
         system_matrix[(i, n_known)] = 1.0;
@@ -97,7 +94,7 @@ pub fn anisotropic_kriging_predict<'py>(
     // Solve for each prediction point
     for p in 0..n_pred {
         let mut rhs = DVector::<f64>::zeros(n_known + 1);
-        
+
         // Compute covariances between prediction point and known points
         for i in 0..n_known {
             let aniso_distance = compute_anisotropic_distance(
@@ -108,19 +105,14 @@ pub fn anisotropic_kriging_predict<'py>(
                 cos_theta,
                 sin_theta,
             );
-            rhs[i] = anisotropic_covariance(
-                aniso_distance,
-                nugget,
-                sill,
-                model_type,
-            )?;
+            rhs[i] = anisotropic_covariance(aniso_distance, nugget, sill, model_type)?;
         }
         rhs[n_known] = 1.0; // unbiasedness constraint
 
         // Solve for weights
-        let weights = lu.solve(&rhs).ok_or_else(|| {
-            PyValueError::new_err("Failed to solve anisotropic kriging system")
-        })?;
+        let weights = lu
+            .solve(&rhs)
+            .ok_or_else(|| PyValueError::new_err("Failed to solve anisotropic kriging system"))?;
 
         // Compute prediction
         let mut prediction = 0.0;
@@ -147,13 +139,13 @@ pub fn anisotropic_kriging_variance<'py>(
 
     if known_coords.ncols() != 2 || pred_coords.ncols() != 2 {
         return Err(PyValueError::new_err(
-            "Anisotropic kriging requires 2D coordinates"
+            "Anisotropic kriging requires 2D coordinates",
         ));
     }
 
     if params.len() != 5 {
         return Err(PyValueError::new_err(
-            "Anisotropic variogram requires 5 parameters"
+            "Anisotropic variogram requires 5 parameters",
         ));
     }
 
@@ -191,19 +183,16 @@ pub fn anisotropic_kriging_variance<'py>(
                 cos_theta,
                 sin_theta,
             );
-            cov_matrix[(i, j)] = anisotropic_covariance(
-                aniso_distance,
-                nugget,
-                sill,
-                model_type,
-            )?;
+            cov_matrix[(i, j)] = anisotropic_covariance(aniso_distance, nugget, sill, model_type)?;
         }
     }
 
     // Set up kriging system with unbiasedness constraint
     let mut system_matrix = DMatrix::<f64>::zeros(n_known + 1, n_known + 1);
-    system_matrix.view_mut((0, 0), (n_known, n_known)).copy_from(&cov_matrix);
-    
+    system_matrix
+        .view_mut((0, 0), (n_known, n_known))
+        .copy_from(&cov_matrix);
+
     for i in 0..n_known {
         system_matrix[(i, n_known)] = 1.0;
         system_matrix[(n_known, i)] = 1.0;
@@ -214,7 +203,7 @@ pub fn anisotropic_kriging_variance<'py>(
     // Compute variance for each prediction point
     for p in 0..n_pred {
         let mut rhs = DVector::<f64>::zeros(n_known + 1);
-        
+
         // Covariances between prediction point and known points
         for i in 0..n_known {
             let aniso_distance = compute_anisotropic_distance(
@@ -225,12 +214,7 @@ pub fn anisotropic_kriging_variance<'py>(
                 cos_theta,
                 sin_theta,
             );
-            rhs[i] = anisotropic_covariance(
-                aniso_distance,
-                nugget,
-                sill,
-                model_type,
-            )?;
+            rhs[i] = anisotropic_covariance(aniso_distance, nugget, sill, model_type)?;
         }
         rhs[n_known] = 1.0;
 
@@ -246,7 +230,7 @@ pub fn anisotropic_kriging_variance<'py>(
             w_dot_c0 += weights[i] * rhs[i];
         }
         let lambda = weights[n_known]; // Lagrange multiplier
-        
+
         variances[p] = (c00 - w_dot_c0 - lambda).max(0.0); // ensure non-negative
     }
 
@@ -271,19 +255,19 @@ pub fn anisotropic_kriging_predict_neighbors<'py>(
 
     if known_coords.ncols() != 2 || pred_coords.ncols() != 2 {
         return Err(PyValueError::new_err(
-            "Anisotropic kriging requires 2D coordinates"
+            "Anisotropic kriging requires 2D coordinates",
         ));
     }
 
     if params.len() != 5 {
         return Err(PyValueError::new_err(
-            "Anisotropic variogram requires 5 parameters"
+            "Anisotropic variogram requires 5 parameters",
         ));
     }
 
     if neighbors.nrows() != pred_coords.nrows() {
         return Err(PyValueError::new_err(
-            "neighbors must have shape (n_predictions, k_neighbors)"
+            "neighbors must have shape (n_predictions, k_neighbors)",
         ));
     }
 
@@ -397,7 +381,7 @@ fn predict_single_point_with_neighbors(
                 cos_theta,
                 sin_theta,
             );
-            
+
             match anisotropic_covariance(aniso_distance, nugget, sill, model_type) {
                 Ok(cov) => system_matrix[(row_pos, col_pos)] = cov,
                 Err(_) => return f64::NAN,
@@ -410,7 +394,7 @@ fn predict_single_point_with_neighbors(
     let lu = system_matrix.lu();
     let mut rhs = DVector::<f64>::zeros(k + 1);
     let pred_coord = pred_coords.row(pred_idx);
-    
+
     // Compute covariances between prediction point and neighbors
     for (row_pos, &i_idx) in neighbor_ids.iter().enumerate() {
         let aniso_distance = compute_anisotropic_distance(
@@ -421,7 +405,7 @@ fn predict_single_point_with_neighbors(
             cos_theta,
             sin_theta,
         );
-        
+
         match anisotropic_covariance(aniso_distance, nugget, sill, model_type) {
             Ok(cov) => rhs[row_pos] = cov,
             Err(_) => return f64::NAN,
@@ -478,9 +462,7 @@ fn anisotropic_covariance(
 
     // Compute semivariance using variogram model
     let gamma = match model_type {
-        "exponential" => {
-            nugget + (sill - nugget) * (1.0 - (-aniso_distance).exp())
-        }
+        "exponential" => nugget + (sill - nugget) * (1.0 - (-aniso_distance).exp()),
         "spherical" => {
             if aniso_distance >= 1.0 {
                 sill
@@ -488,17 +470,14 @@ fn anisotropic_covariance(
                 nugget + (sill - nugget) * (1.5 * aniso_distance - 0.5 * aniso_distance.powi(3))
             }
         }
-        "gaussian" => {
-            nugget + (sill - nugget) * (1.0 - (-(aniso_distance * aniso_distance)).exp())
-        }
+        "gaussian" => nugget + (sill - nugget) * (1.0 - (-(aniso_distance * aniso_distance)).exp()),
         "matern" => {
             // Simplified Matern with nu=0.5 (equivalent to exponential)
             nugget + (sill - nugget) * (1.0 - (-aniso_distance).exp())
         }
         _ => {
             return Err(PyValueError::new_err(format!(
-                "Unsupported variogram model: {}",
-                model_type
+                "Unsupported variogram model: {model_type}"
             )));
         }
     };
@@ -521,7 +500,7 @@ pub fn anisotropic_distance_matrix<'py>(
 
     if coords1.ncols() != 2 || coords2.ncols() != 2 {
         return Err(PyValueError::new_err(
-            "Anisotropic distance calculation requires 2D coordinates"
+            "Anisotropic distance calculation requires 2D coordinates",
         ));
     }
 
@@ -580,15 +559,15 @@ pub fn fit_anisotropic_variogram<'py>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ndarray::Array1;
     use approx::assert_relative_eq;
+    use ndarray::Array1;
 
     #[test]
     fn test_anisotropic_distance_isotropic_case() {
         // Test that anisotropic distance reduces to euclidean when ranges are equal
         let point1 = Array1::from_vec(vec![0.0, 0.0]);
         let point2 = Array1::from_vec(vec![3.0, 4.0]);
-        
+
         let aniso_dist = compute_anisotropic_distance(
             point1.view(),
             point2.view(),
@@ -597,7 +576,7 @@ mod tests {
             1.0, // cos(0) = 1
             0.0, // sin(0) = 0
         );
-        
+
         let euclidean_dist = 5.0; // sqrt(3^2 + 4^2)
         assert_relative_eq!(aniso_dist, euclidean_dist, epsilon = 1e-10);
     }
@@ -607,7 +586,7 @@ mod tests {
         // Test rotation effects
         let point1 = Array1::from_vec(vec![0.0, 0.0]);
         let point2 = Array1::from_vec(vec![1.0, 0.0]);
-        
+
         // No rotation - point along x-axis should use major range
         let dist_no_rot = compute_anisotropic_distance(
             point1.view(),
@@ -618,7 +597,7 @@ mod tests {
             0.0, // sin(0) = 0
         );
         assert_relative_eq!(dist_no_rot, 0.5, epsilon = 1e-10); // 1.0 / 2.0
-        
+
         // 90-degree rotation - same point should now use minor range
         let dist_90_rot = compute_anisotropic_distance(
             point1.view(),
@@ -645,7 +624,8 @@ mod tests {
 
         // Test spherical model
         let cov_sph = anisotropic_covariance(distance, nugget, sill, "spherical").unwrap();
-        let expected_gamma_sph = nugget + (sill - nugget) * (1.5 * distance - 0.5 * distance.powi(3));
+        let expected_gamma_sph =
+            nugget + (sill - nugget) * (1.5 * distance - 0.5 * distance.powi(3));
         let expected_cov_sph = sill - expected_gamma_sph;
         assert_relative_eq!(cov_sph, expected_cov_sph, epsilon = 1e-10);
 
@@ -665,7 +645,7 @@ mod tests {
         // Test negative ranges
         let point1 = Array1::from_vec(vec![0.0, 0.0]);
         let point2 = Array1::from_vec(vec![1.0, 0.0]);
-        
+
         // Negative ranges should still work in distance calculation (handled at higher level)
         let dist = compute_anisotropic_distance(
             point1.view(),
@@ -683,7 +663,7 @@ mod tests {
         // Test very high anisotropy ratio
         let point1 = Array1::from_vec(vec![0.0, 0.0]);
         let point2 = Array1::from_vec(vec![1.0, 0.0]);
-        
+
         let dist = compute_anisotropic_distance(
             point1.view(),
             point2.view(),
@@ -692,8 +672,7 @@ mod tests {
             1.0,   // no rotation
             0.0,
         );
-        
+
         assert_relative_eq!(dist, 0.01, epsilon = 1e-10); // 1.0 / 100.0
     }
 }
-   

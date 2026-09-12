@@ -1,7 +1,7 @@
 // src/rust/src/distances.rs
+use ndarray::{Array2, ArrayView1};
 use numpy::{IntoPyArray, PyArray2, PyReadonlyArray2};
 use pyo3::prelude::*;
-use ndarray::{Array2, ArrayView1};
 use rayon::prelude::*;
 
 /// Calculate Euclidean distances between all pairs of points
@@ -13,22 +13,25 @@ pub fn euclidean_distances<'py>(
     let coords = coords.as_array();
     let n = coords.nrows();
     let mut distances = Array2::<f64>::zeros((n, n));
-    
+
     // Parallel computation of distance matrix
-    distances.indexed_iter_mut().par_bridge().for_each(|((i, j), dist)| {
-        if i <= j {
-            let d = euclidean_distance_single(coords.row(i), coords.row(j));
-            *dist = d;
-        }
-    });
-    
+    distances
+        .indexed_iter_mut()
+        .par_bridge()
+        .for_each(|((i, j), dist)| {
+            if i <= j {
+                let d = euclidean_distance_single(coords.row(i), coords.row(j));
+                *dist = d;
+            }
+        });
+
     // Mirror the upper triangle to lower triangle
     for i in 0..n {
         for j in 0..i {
             distances[[i, j]] = distances[[j, i]];
         }
     }
-    
+
     Ok(distances.into_pyarray(py))
 }
 
@@ -43,21 +46,24 @@ pub fn haversine_distances<'py>(
     let n = coords.nrows();
     let r = radius.unwrap_or(6371.0); // Earth radius in km
     let mut distances = Array2::<f64>::zeros((n, n));
-    
-    distances.indexed_iter_mut().par_bridge().for_each(|((i, j), dist)| {
-        if i <= j {
-            let d = haversine_distance_single(coords.row(i), coords.row(j), r);
-            *dist = d;
-        }
-    });
-    
+
+    distances
+        .indexed_iter_mut()
+        .par_bridge()
+        .for_each(|((i, j), dist)| {
+            if i <= j {
+                let d = haversine_distance_single(coords.row(i), coords.row(j), r);
+                *dist = d;
+            }
+        });
+
     // Mirror the matrix
     for i in 0..n {
         for j in 0..i {
             distances[[i, j]] = distances[[j, i]];
         }
     }
-    
+
     Ok(distances.into_pyarray(py))
 }
 
@@ -74,13 +80,12 @@ fn haversine_distance_single(p1: ArrayView1<f64>, p2: ArrayView1<f64>, radius: f
     let lon1 = p1[1].to_radians();
     let lat2 = p2[0].to_radians();
     let lon2 = p2[1].to_radians();
-    
+
     let dlat = lat2 - lat1;
     let dlon = lon2 - lon1;
-    
-    let a = (dlat / 2.0).sin().powi(2) 
-        + lat1.cos() * lat2.cos() * (dlon / 2.0).sin().powi(2);
+
+    let a = (dlat / 2.0).sin().powi(2) + lat1.cos() * lat2.cos() * (dlon / 2.0).sin().powi(2);
     let c = 2.0 * a.sqrt().asin();
-    
+
     radius * c
 }
