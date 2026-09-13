@@ -104,11 +104,11 @@ jobs:
           twine check dist/*
           ls -la dist/
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
-          # Artifact names must be unique per job under upload-artifact v4.
-          # The previous workflow uploaded every job to the name "wheels",
-          # which v4 rejects outright.
+          # Artifact names must be unique per job: upload-artifact fails on an
+          # existing name unless `overwrite` is set. The original workflow
+          # uploaded every job to the name "wheels", which v4 onwards rejects.
           name: dist-wheel-${{ matrix.runner }}-${{ matrix.target }}
           path: dist/*.whl
           if-no-files-found: error
@@ -130,7 +130,7 @@ jobs:
           python -m pip install --upgrade pip twine
           twine check dist/*
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: dist-sdist
           path: dist/*.tar.gz
@@ -147,7 +147,7 @@ jobs:
     permissions:
       id-token: write # required to mint the OIDC token; nothing else is needed
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           pattern: dist-*
           merge-multiple: true
@@ -168,7 +168,7 @@ jobs:
     permissions:
       id-token: write # required to mint the OIDC token; nothing else is needed
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           pattern: dist-*
           merge-multiple: true
