@@ -78,8 +78,14 @@ jobs:
         include:
           - { runner: ubuntu-latest, target: x86_64, manylinux: auto }
           - { runner: ubuntu-24.04-arm, target: aarch64, manylinux: auto }
-          - { runner: macos-13, target: x86_64 }
-          - { runner: macos-latest, target: aarch64 }
+          # Intel macOS is cross-compiled on the arm64 runner. The macos-13
+          # Intel runner this used was retired in December 2025, and GitHub's
+          # remaining Intel images are in maintenance mode, so depending on them
+          # risks another release that waits forever for a runner.
+          # deployment_target is rustc's minimum for each architecture, and
+          # wheel_tag is how that version appears in the wheel's platform tag.
+          - { runner: macos-latest, target: x86_64, macos_arch: x86_64, deployment_target: "10.12", wheel_tag: "10_12" }
+          - { runner: macos-latest, target: aarch64, macos_arch: arm64, deployment_target: "11.0", wheel_tag: "11_0" }
           - { runner: windows-latest, target: x64 }
 
     steps:
@@ -91,11 +97,44 @@ jobs:
 
       - name: Build wheel
         uses: PyO3/maturin-action@v1
+        env:
+          # Pinned so a runner image cannot raise it. macos-15-intel started
+          # requiring 14.0 in March 2026 (actions/runner-images#13817), which
+          # would narrow the wheel to newer Macs without failing the build.
+          # maturin uses the larger of this and rustc's default. Empty, and
+          # unused, on Linux and Windows.
+          MACOSX_DEPLOYMENT_TARGET: ${{ matrix.deployment_target }}
         with:
           target: ${{ matrix.target }}
           args: --release --out dist --strip
           manylinux: ${{ matrix.manylinux }}
           sccache: "true"
+
+      - name: Verify macOS wheel architecture and platform tag
+        if: runner.os == 'macOS'
+        shell: bash
+        env:
+          ARCH: ${{ matrix.macos_arch }}
+          WHEEL_TAG: ${{ matrix.wheel_tag }}
+        run: |
+          # A cross-compiled wheel cannot be imported on this runner, so check
+          # what can be checked: the platform tag, and the architecture of the
+          # compiled library inside the wheel.
+          set -euo pipefail
+          wheel=$(ls dist/*.whl)
+          case "$wheel" in
+            *"-macosx_${WHEEL_TAG}_${ARCH}.whl") ;;
+            *) echo "::error::$wheel is not tagged macosx_${WHEEL_TAG}_${ARCH}"; exit 1 ;;
+          esac
+          scratch=$(mktemp -d)
+          unzip -q "$wheel" -d "$scratch"
+          lib=$(find "$scratch" -name '_core*.so' -print -quit)
+          archs=$(lipo -archs "$lib")
+          echo "$(basename "$wheel"): _core is $archs"
+          if [ "$archs" != "$ARCH" ]; then
+            echo "::error::expected $ARCH, got $archs"
+            exit 1
+          fi
 
       - name: Check wheel metadata
         shell: bash
