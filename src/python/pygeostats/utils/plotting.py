@@ -133,7 +133,7 @@ def plot_variogram(
     if weights is not None:
         hovertext = [
             f"Distance: {d:.4f}<br>Gamma: {g:.4f}<br>Pairs: {int(w)}"
-            for d, g, w in zip(distances, gamma, weights)
+            for d, g, w in zip(distances, gamma, weights, strict=True)
         ]
     fig.add_trace(
         go.Scatter(
