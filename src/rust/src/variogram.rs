@@ -1040,11 +1040,18 @@ impl AnisotropicIterationContext {
         }
     }
 
+    /// Longer axis over shorter, whatever order the ranges are stored in, so the
+    /// extreme-anisotropy check cannot be bypassed by the axis labelling.
     fn ratio(&self) -> f64 {
-        if self.range_minor <= 0.0 {
+        let (longer, shorter) = if self.range_major >= self.range_minor {
+            (self.range_major, self.range_minor)
+        } else {
+            (self.range_minor, self.range_major)
+        };
+        if shorter <= 0.0 {
             f64::INFINITY
         } else {
-            self.range_major / self.range_minor
+            longer / shorter
         }
     }
 }
@@ -1088,8 +1095,9 @@ fn run_levenberg_marquardt_internal(
             runtime_seconds: 0.0,
             evaluations: 0,
             ratio: if anisotropic && parameters.len() > 3 {
-                let minor = parameters[3].max(MIN_RANGE);
-                parameters[2] / minor
+                let longer = parameters[2].max(parameters[3]);
+                let shorter = parameters[2].min(parameters[3]).max(MIN_RANGE);
+                longer / shorter
             } else {
                 1.0
             },
@@ -1337,7 +1345,7 @@ fn run_levenberg_marquardt_internal(
         warnings.push(format!("Reached maximum iterations ({MAX_ITERATIONS})"));
     }
 
-    let final_params = if best_cost.is_finite() {
+    let mut final_params = if best_cost.is_finite() {
         best_params.clone()
     } else {
         params_vec.clone()
@@ -1355,6 +1363,25 @@ fn run_levenberg_marquardt_internal(
         warnings.push(String::from(
             "Range collapsed to its lower bound: the model is constant across every observed lag",
         ));
+    }
+
+    // Put the longer axis first. An ellipse with its axes swapped and its rotation
+    // advanced by 90 degrees is the same model, so the optimiser converges to
+    // either labelling depending on where it starts. Callers -- and
+    // AnisotropicKriging.get_anisotropy_info in particular -- assume
+    // range_major >= range_minor. When exactly one axis is fixed the caller chose
+    // the labels, so they are left alone. The Jacobian was evaluated at the
+    // unswapped parameters, so standard errors are computed there and swapped.
+    let std_params = final_params.clone();
+    let axes_swapped = anisotropic
+        && final_params.len() >= 5
+        && fix_mask.len() >= 4
+        && !fix_mask[2]
+        && !fix_mask[3]
+        && final_params[3] > final_params[2];
+    if axes_swapped {
+        final_params.swap(2, 3);
+        final_params[4] += PI / 2.0;
     }
 
     let final_cost = if best_cost.is_finite() {
@@ -1393,14 +1420,17 @@ fn run_levenberg_marquardt_internal(
         }
     }
 
-    let parameter_std = compute_parameter_std(
+    let mut parameter_std = compute_parameter_std(
         &best_jtj,
         anisotropic,
-        &final_params,
+        &std_params,
         final_cost,
         free_indices.len(),
         fix_mask,
     );
+    if axes_swapped && parameter_std.len() >= 4 {
+        parameter_std.swap(2, 3);
+    }
 
     let mut summary = OptimizationSummary {
         parameters: transformed,
@@ -1435,16 +1465,27 @@ fn run_levenberg_marquardt_internal(
                 .is_some_and(|iso_r2| iso_r2 > summary.r_squared + 1e-6);
 
         if fallback_needed {
+            // Whenever the fallback does not replace the anisotropic fit, the fit
+            // has tripped a reliability check that nothing resolved. It is kept,
+            // because it is still the model that fits, but it is not reported as
+            // converged; the warnings say why. status stays the optimiser's own
+            // outcome, so this is the one case where converged and status differ.
             match attempt_isotropic_fallback(model, &dataset, fix_mask, &final_params, &summary) {
-                Ok(Some(fallback_summary)) => {
-                    return Ok(fallback_summary);
+                Ok(FallbackOutcome::Replaced(fallback_summary)) => {
+                    return Ok(*fallback_summary);
                 }
-                Ok(None) => {
+                Ok(FallbackOutcome::Rejected(reasons)) => {
+                    summary.converged = false;
+                    summary.warnings.extend(reasons);
+                }
+                Ok(FallbackOutcome::NotApplicable) => {
+                    summary.converged = false;
                     summary
                         .warnings
                         .push(String::from("Isotropic fallback not applicable"));
                 }
                 Err(err) => {
+                    summary.converged = false;
                     summary
                         .warnings
                         .push(format!("Isotropic fallback failed: {err}"));
@@ -1455,15 +1496,25 @@ fn run_levenberg_marquardt_internal(
 
     Ok(summary)
 }
+/// What the isotropic fallback did with an anisotropic fit that needed it.
+enum FallbackOutcome {
+    /// A usable isotropic fit replaced it.
+    Replaced(Box<OptimizationSummary>),
+    /// The isotropic fit was not usable. These warnings explain why.
+    Rejected(Vec<String>),
+    /// The fallback does not apply to these parameters.
+    NotApplicable,
+}
+
 fn attempt_isotropic_fallback(
     model: VariogramModel,
     dataset: &Dataset,
     fix_mask: &[bool],
     final_params: &[f64],
     anisotropic_summary: &OptimizationSummary,
-) -> PyResult<Option<OptimizationSummary>> {
+) -> PyResult<FallbackOutcome> {
     if final_params.len() < 5 {
-        return Ok(None);
+        return Ok(FallbackOutcome::NotApplicable);
     }
 
     let nugget = final_params[0].max(0.0);
@@ -1483,7 +1534,7 @@ fn attempt_isotropic_fallback(
     };
 
     if sanitize_initial_params(&mut iso_initial, &iso_fix_mask, false).is_err() {
-        return Ok(None);
+        return Ok(FallbackOutcome::NotApplicable);
     }
 
     let mut iso_dataset = dataset.clone();
@@ -1502,6 +1553,19 @@ fn attempt_isotropic_fallback(
     );
 
     let mut fallback_summary = fallback_result?;
+
+    // Only replace the anisotropic fit with a usable isotropic one. On a strongly
+    // anisotropic field the isotropic fit can collapse its range to the floor -- a
+    // constant, pure-nugget model -- which is worse than the fit it would replace,
+    // and used to be returned as converged regardless.
+    if !fallback_summary.status.is_success() {
+        let mut reasons = vec![format!(
+            "Isotropic fallback rejected: its fit ended with status {}, so the anisotropic fit is returned and not reported as converged",
+            fallback_summary.status.as_str()
+        )];
+        reasons.extend(fallback_summary.warnings.iter().cloned());
+        return Ok(FallbackOutcome::Rejected(reasons));
+    }
 
     if fallback_summary.parameters.len() >= 3 {
         let iso_params = fallback_summary.parameters.clone();
@@ -1543,7 +1607,7 @@ fn attempt_isotropic_fallback(
     combined_warnings.extend(fallback_summary.warnings.iter().cloned());
     fallback_summary.warnings = combined_warnings;
 
-    Ok(Some(fallback_summary))
+    Ok(FallbackOutcome::Replaced(Box::new(fallback_summary)))
 }
 
 fn compute_isotropic_baseline(
