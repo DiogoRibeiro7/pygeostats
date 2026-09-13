@@ -41,9 +41,13 @@ def _covariance_from_variogram(
     else:
         raise ValueError(f"Unsupported model '{model}'")
 
-    covariance = sill - gamma
-    np.fill_diagonal(covariance, sill)
-    return covariance
+    # gamma(0) is 0 by definition -- the nugget is a jump at h -> 0+ -- so the
+    # covariance at zero separation is the full sill. This used to be applied with
+    # np.fill_diagonal, which is right for a square distance matrix, but
+    # gstat_reference passes an (n, 1) column of target-to-sample distances, and on
+    # a column fill_diagonal still overwrites element 0. Every reference prediction
+    # was therefore computed as if the target coincided with the first sample.
+    return np.where(distances == 0, sill, sill - gamma)
 
 
 def generate_isotropic_field(

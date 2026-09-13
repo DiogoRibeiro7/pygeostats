@@ -107,7 +107,7 @@ warn_unused_configs = true
 # ship no type information, so nearly every numerical expression is typed Any
 # and this flag alone produced 85 of 223 findings -- noise from the dependency
 # graph, not defects here. Worth turning back on once those returns are
-# annotated. mypy currently reports 138 findings and runs as an advisory step
+# annotated. mypy currently reports 137 findings and runs as an advisory step
 # in CI rather than a gate; see .github/workflows/ci.yml.
 
 [[tool.mypy.overrides]]

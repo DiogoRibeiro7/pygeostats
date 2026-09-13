@@ -10,6 +10,50 @@ from sklearn.base import BaseEstimator
 from .._core import fit_variogram_model
 from ..utils.validation import validate_array
 
+# Ratio h95/range, where h95 is the lag at which gamma reaches 95% of the sill.
+# Used to turn an empirical h95 estimate into an initial range parameter.
+_H95_OVER_RANGE = {
+    "exponential": 3.0,
+    "gaussian": 3.0**0.5,
+    "spherical": 0.811,
+}
+
+
+# Identifiability window for a free range parameter, relative to the observed
+# lags. Below _RANGE_FLOOR_OVER_MIN_LAG * min_lag every observed lag is many ranges
+# out, so gamma is constant across the data and the range has no effect on the
+# fit; this is where the optimiser used to settle and report success. Above
+# _RANGE_CAP_OVER_MAX_LAG * max_lag the curve has not begun to bend inside the
+# data, so range and sill trade off without limit.
+_RANGE_FLOOR_OVER_MIN_LAG = 0.05
+_RANGE_CAP_OVER_MAX_LAG = 2.0
+_SILL_CAP_OVER_MAX_GAMMA = 10.0
+
+
+def _gamma(
+    model: str, h: np.ndarray, nugget: float, sill: float, range_: float
+) -> np.ndarray:
+    """Evaluate a theoretical variogram. Matern is treated as nu = 0.5 (exponential).
+
+    gamma(0) is 0 by definition: the nugget is a discontinuity at h -> 0+, not the
+    value at zero separation. Without that case covariance(0) came out as
+    sill - nugget instead of the sill. The Rust kriging core already treats zero
+    distance this way, so this also makes the Python layer agree with it.
+    """
+    h = np.asarray(h, dtype=float)
+    if model in ("exponential", "matern"):
+        gamma = nugget + (sill - nugget) * (1.0 - np.exp(-h / range_))
+    elif model == "gaussian":
+        gamma = nugget + (sill - nugget) * (1.0 - np.exp(-((h / range_) ** 2)))
+    elif model == "spherical":
+        ratio = h / range_
+        gamma = np.where(
+            h < range_, nugget + (sill - nugget) * (1.5 * ratio - 0.5 * ratio**3), sill
+        )
+    else:
+        raise ValueError(f"Unknown model: {model}")
+    return np.where(h == 0, 0.0, gamma)
+
 
 class Variogram(BaseEstimator):
     """
@@ -131,17 +175,8 @@ class Variogram(BaseEstimator):
                 dtype=bool,
             )
 
-        # Initial parameter estimates
-        initial_params = self._get_initial_params(distances, gamma)
-
-        # Call Rust optimizer
-        fit_result = fit_variogram_model(
-            distances,
-            gamma,
-            self.model,
-            initial_params,
-            weights=weight_array,
-            fix_mask=fix_mask,
+        fit_result, admissible = self._fit_multistart(
+            distances, gamma, weight_array, fix_mask
         )
 
         params = np.asarray(fit_result.parameters, dtype=float)
@@ -158,6 +193,14 @@ class Variogram(BaseEstimator):
         self.status_ = str(fit_result.status)
         self.fallback_used_ = bool(fit_result.fallback_used)
         self.warnings_ = [str(msg) for msg in fit_result.warnings]
+        if not admissible:
+            self.converged_ = False
+            self.warnings_.append(
+                "No admissible fit: every starting point converged to a range or "
+                "sill outside what the observed lags can identify. The empirical "
+                "variogram does not constrain this model; the lowest-cost "
+                "parameters are returned but should not be relied on."
+            )
         self.parameter_std_ = np.asarray(fit_result.parameter_std, dtype=float)
         self.trace_ = (
             np.asarray(fit_result.trace, dtype=float)
@@ -220,6 +263,78 @@ class Variogram(BaseEstimator):
         gamma = self.predict(distances)
         return self.sill_ - gamma
 
+    def _fit_multistart(self, distances, gamma, weights, fix_mask):
+        """Run the optimiser from several starting ranges and keep the best fit.
+
+        Levenberg-Marquardt is local. From a starting range too far out, a step
+        can drive the range down to its floor, where the model is constant over
+        every observed lag, the range derivative underflows to exactly zero and
+        the optimiser reports success at a solution several times worse than the
+        least-squares optimum. Starting from several ranges and discarding
+        solutions outside the identifiable window reaches that optimum.
+
+        Returns the chosen fit result and whether it lies inside the window.
+        """
+        base = self._get_initial_params(distances, gamma)
+        w = np.ones_like(distances) if weights is None else np.asarray(weights, float)
+
+        positive = distances[distances > 0]
+        max_lag = float(np.max(distances))
+        range_fixed = fix_mask is not None and bool(fix_mask[2])
+        sill_fixed = fix_mask is not None and bool(fix_mask[1])
+
+        if range_fixed or positive.size == 0 or max_lag <= 0.0:
+            starts = [float(base[2])]
+        else:
+            min_lag = float(positive.min())
+            starts = sorted(
+                {
+                    float(base[2]),
+                    2.0 * min_lag,
+                    max_lag / 8.0,
+                    max_lag / 4.0,
+                    max_lag / 2.0,
+                    max_lag,
+                }
+            )
+
+        def admissible(params):
+            if not np.all(np.isfinite(params)):
+                return False
+            if not range_fixed and positive.size and max_lag > 0.0:
+                floor = _RANGE_FLOOR_OVER_MIN_LAG * float(positive.min())
+                cap = _RANGE_CAP_OVER_MAX_LAG * max_lag
+                if not floor <= params[2] <= cap:
+                    return False
+            if not sill_fixed and params[1] > _SILL_CAP_OVER_MAX_GAMMA * float(
+                np.max(gamma)
+            ):
+                return False
+            return True
+
+        candidates = []
+        for start in starts:
+            initial = base.copy()
+            initial[2] = max(start, 1e-6)
+            result = fit_variogram_model(
+                distances,
+                gamma,
+                self.model,
+                initial,
+                weights=weights,
+                fix_mask=fix_mask,
+            )
+            params = np.asarray(result.parameters, dtype=float)
+            cost = float(
+                np.sum(w * (_gamma(self.model, distances, *params) - gamma) ** 2)
+            )
+            candidates.append((cost, admissible(params), result))
+
+        inside = [c for c in candidates if c[1]]
+        pool = inside if inside else candidates
+        best = min(pool, key=lambda c: c[0] if np.isfinite(c[0]) else np.inf)
+        return best[2], bool(inside)
+
     def _get_initial_params(
         self, distances: np.ndarray, gamma: np.ndarray
     ) -> np.ndarray:
@@ -231,10 +346,18 @@ class Variogram(BaseEstimator):
         if self.range is not None:
             range_init = self.range
         else:
-            # Estimate range as distance where gamma reaches ~95% of sill
+            # Locate the lag at which gamma first reaches ~95% of the sill, then
+            # convert that to the model's range parameter. The two are not the
+            # same thing: gamma(h) reaches 95% of its sill at h = 3.00*range for
+            # the exponential model and 1.73*range (i.e. sqrt(3)) for the
+            # gaussian, while the spherical reaches it at 0.81*range. Treating
+            # h95 as the range itself overestimated it threefold for the
+            # exponential case, which started the optimiser far enough out that
+            # it descended into the degenerate range -> 0 solution.
             target_gamma = sill_init * 0.95
             idx = np.argmin(np.abs(gamma - target_gamma))
-            range_init = distances[idx] if idx > 0 else distances[-1] / 3
+            h95 = distances[idx] if idx > 0 else distances[-1] / 3
+            range_init = h95 / _H95_OVER_RANGE.get(self.model, 3.0)
 
         params = np.array([nugget_init, sill_init, range_init], dtype=float)
         params[0] = max(params[0], 0.0)
@@ -245,30 +368,8 @@ class Variogram(BaseEstimator):
 
     def _variogram_function(self, distances: np.ndarray) -> np.ndarray:
         """Calculate variogram values using the fitted model."""
-        h = distances
-        nugget, sill, range_param = self.nugget_, self.sill_, self.range_
-
-        if self.model == "exponential":
-            return nugget + (sill - nugget) * (1 - np.exp(-h / range_param))
-
-        elif self.model == "spherical":
-            gamma = np.full_like(h, sill)
-            mask = h < range_param
-            h_scaled = h[mask] / range_param
-            gamma[mask] = nugget + (sill - nugget) * (
-                1.5 * h_scaled - 0.5 * h_scaled**3
-            )
-            return gamma
-
-        elif self.model == "gaussian":
-            return nugget + (sill - nugget) * (1 - np.exp(-((h / range_param) ** 2)))
-
-        elif self.model == "matern":
-            # Simplified Matern with nu=0.5 (exponential)
+        if self.model == "matern":
             warnings.warn(
                 "Matern model using nu=0.5 (equivalent to exponential)", stacklevel=2
             )
-            return nugget + (sill - nugget) * (1 - np.exp(-h / range_param))
-
-        else:
-            raise ValueError(f"Unknown model: {self.model}")
+        return _gamma(self.model, distances, self.nugget_, self.sill_, self.range_)

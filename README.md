@@ -11,10 +11,10 @@ point-pattern analysis and spatial autocorrelation.
 **Pre-release. Not yet published to PyPI, and not ready for production use.**
 
 The package builds and imports, the test suite runs green, and wheels build for
-Linux, macOS and Windows on x86_64 and arm64. Several numerical defects are
-known and tracked as strict `xfail` tests, the most serious being in variogram
-model fitting — see [Known limitations](#known-limitations). Read that section
-before relying on any fitted parameter.
+Linux, macOS and Windows on x86_64 and arm64. The remaining known defects are
+tracked as strict `xfail` tests and listed under
+[Known limitations](#known-limitations); read that section before relying on
+directional or anisotropy analysis.
 
 This project was previously called `pyspatialstats`, and was renamed because
 that name belongs to [an existing, actively maintained package](https://github.com/jasperroebroek/pyspatialstats)
@@ -103,13 +103,6 @@ result = morans_i(values, weights)
 These are real defects, each covered by a strict `xfail` test so that the build
 fails if one is silently fixed. They are not cosmetic:
 
-* **Variogram model fitting does not recover known parameters.** Exponential and
-  gaussian fits collapse to the range lower bound; spherical diverges by three
-  orders of magnitude. The Levenberg–Marquardt implementation in the Rust core
-  needs investigation.
-* **Kriging accuracy against reference data is poor**, a consequence of the
-  above: R² against the gstat reference datasets is negative.
-* `Variogram.covariance()` does not equal the sill at lag zero.
 * `detect_anisotropy()` reports a major direction 45° away from the truth on a
   synthetic anisotropic field.
 * Directional bandwidth filtering discards every pair rather than a subset.
@@ -119,9 +112,18 @@ fails if one is silently fixed. They are not cosmetic:
   `create_anisotropic_variogram_from_directional()` raise `NotImplementedError`.
   They call a helper that was never written. Use `InitializationEnsemble` or
   `RangeInitializer` from `pygeostats.variogram.initialization` instead.
+* `RangeInitializer.estimate()` does not recover the major and minor range of a
+  synthetic anisotropic field to the tolerance originally asserted for it.
+  Whether the estimator or that tolerance is wrong is unresolved.
+* The sampling-pattern diagnostic classifies a regular 4×2 lattice as irregular.
 
 The point-pattern, spatial-autocorrelation and clustering modules are not
 affected by any of the above and pass their tests.
+
+Variogram fitting reports when it cannot be trusted. If the empirical variogram
+does not constrain the chosen model — typically because it is still rising at
+the largest observed lag — `Variogram.fit` sets `converged_` to `False` and adds
+a warning, rather than returning a range as though it were reliable.
 
 Type annotations are incomplete: mypy reports findings in first-party code and
 runs as an advisory CI step rather than a gate.
@@ -131,7 +133,7 @@ runs as an advisory CI step rather than a gate.
 ```bash
 pip install -e ".[dev,test]"
 
-pytest tests/                  # 84 passed, 15 xfailed
+pytest tests/                  # 99 passed, 8 xfailed
 black --check src/python/ tests/
 ruff check src/python/ tests/
 cargo fmt --all -- --check
