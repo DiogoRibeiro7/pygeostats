@@ -4,12 +4,23 @@ from __future__ import annotations
 
 import numpy as np
 import pytest
-from hypothesis import given, settings
+from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
 from pygeostats.variogram.empirical import EmpiricalVariogram
 from pygeostats.variogram.models import Variogram
 
 from .data_generation import VariogramParameters, generate_isotropic_field
+
+# too_slow is suppressed because the slow draws are not this strategy's: its
+# examples generate in milliseconds. Hypothesis scans the source of modules it
+# considers local for constants, and it does so inside a draw whenever new
+# modules have been imported. It recognises installed packages by a
+# "/site-packages/" substring, which never matches a Windows path, so there it
+# scans numpy, scipy and every other third-party module the earlier tests
+# imported. Locally this stalled a single draw for 86-101 s and failed the run.
+_PROPERTY_SETTINGS = settings(
+    deadline=None, suppress_health_check=[HealthCheck.too_slow]
+)
 
 
 @st.composite
@@ -53,7 +64,7 @@ def coordinate_value_sets(draw):
     return coords, values
 
 
-@settings(deadline=None, max_examples=25)
+@settings(_PROPERTY_SETTINGS, max_examples=25)
 @given(data=coordinate_value_sets())
 def test_empirical_variogram_non_negative(data):
     coords, values = data
@@ -125,7 +136,7 @@ def test_variogram_parameter_boundaries(model):
     assert variogram.range_ > 0.0
 
 
-@settings(deadline=None, max_examples=10)
+@settings(_PROPERTY_SETTINGS, max_examples=10)
 @given(data=coordinate_value_sets())
 def test_variogram_symmetry_on_random_data(data):
     coords, values = data
