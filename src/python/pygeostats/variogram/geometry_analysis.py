@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from typing import Dict, Optional
 
 import numpy as np
+from scipy.spatial import cKDTree
 
 from .directional import DirectionalResult
 
@@ -131,11 +132,23 @@ def _classify_strength(ratio: float, ranges: np.ndarray) -> str:
 
 
 def _sampling_pattern(coords: np.ndarray) -> str:
-    diffs = coords[1:] - coords[:-1]
-    norms = np.linalg.norm(diffs, axis=1)
-    if norms.size == 0:
+    """Classify how evenly the sampling locations are spaced.
+
+    Uses the coefficient of variation of each location's distance to its nearest
+    neighbour: 0 on any lattice and about 0.52 for uniformly random locations.
+    Below 0.15 is regular, which covers a grid jittered by up to about 20% of its
+    spacing; below 0.35 is quasi-regular; anything higher is irregular. Repeated
+    locations are counted once, and fewer than two distinct ones are insufficient.
+    """
+    # This used distances between consecutive rows, so the label depended on the
+    # order the points were listed in: a perfect 10x10 grid listed row by row came
+    # out irregular, with a coefficient of variation of 1.34.
+    locations = np.unique(coords, axis=0)
+    if locations.shape[0] < 2:
         return "insufficient"
-    cv = float(np.std(norms) / np.mean(norms))
+    distances, _ = cKDTree(locations).query(locations, k=2)
+    nearest = distances[:, 1]
+    cv = float(np.std(nearest) / np.mean(nearest))
     if cv < 0.15:
         return "regular"
     if cv < 0.35:
