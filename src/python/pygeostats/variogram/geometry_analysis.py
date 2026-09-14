@@ -9,6 +9,7 @@ from typing import Dict, Optional
 import numpy as np
 from scipy.spatial import cKDTree
 
+from ._axial import axial_mean
 from .directional import DirectionalResult
 
 __all__ = [
@@ -66,7 +67,10 @@ class SpatialGeometryAnalyzer:
         if ranges.size > 1:
             best_dir = _best_direction(self.directional_results)
             if best_dir is not None:
-                combined_angle = 0.5 * (combined_angle + best_dir)
+                # Averaged as axes. Points along 175 degrees with the longest range at
+                # 0 degrees are 5 degrees apart as axes, but their arithmetic mean
+                # put the primary angle at 87.5, perpendicular to both.
+                combined_angle = axial_mean([(pca_angle, 1.0), (best_dir, 1.0)])
 
         diagnostics = {
             "range_max": range_max,

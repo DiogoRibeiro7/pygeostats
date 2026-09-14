@@ -8,6 +8,7 @@ They are real behavioural expectations, so they belong here.
 
 import numpy as np
 import pytest
+from pygeostats.variogram.directional import DirectionalResult
 from pygeostats.variogram.geometry_analysis import SpatialGeometryAnalyzer
 
 REGULAR_GRID = np.array(
@@ -85,6 +86,32 @@ def test_repeated_location_is_counted_once():
 
 def test_coincident_points_are_insufficient():
     assert _pattern(np.zeros((3, 2))) == "insufficient"
+
+
+def test_primary_angle_is_averaged_as_an_axis():
+    # Points along 175 degrees, and the longest directional range at 0 degrees. As
+    # axes these are 5 degrees apart, but their arithmetic mean put the primary
+    # angle at 87.5, perpendicular to both.
+    along = np.linspace(-1.0, 1.0, 30)
+    theta = np.radians(175.0)
+    coords = np.column_stack([along * np.cos(theta), along * np.sin(theta)])
+    bin_centers = np.linspace(0.1, 1.0, 10)
+    results = {}
+    for angle, length in ((0.0, 0.5), (45.0, 0.2), (90.0, 0.1), (135.0, 0.2)):
+        gamma = 1.0 - np.exp(-bin_centers / length)
+        results[angle] = DirectionalResult(
+            angle=angle,
+            bin_centers=bin_centers,
+            gamma=gamma,
+            counts=np.full(bin_centers.size, 5),
+            ci_lower=gamma,
+            ci_upper=gamma,
+        )
+
+    diag = SpatialGeometryAnalyzer(coords, results).analyze()
+
+    assert diag.primary_angle_deg == pytest.approx(177.5)
+    assert diag.secondary_angle_deg == pytest.approx(87.5)
 
 
 def test_regular_grid_primary_axis_is_along_the_long_side():
