@@ -20,6 +20,7 @@ different assertions.
 import numpy as np
 import pytest
 from pygeostats._core import fit_anisotropic_variogram
+from scipy.optimize import nnls
 
 MODELS = ["exponential", "gaussian", "spherical"]
 
@@ -28,9 +29,21 @@ TRUTH = (0.1, 1.0, 3.0, 1.0, 0.6)
 MODEST_START = (0.05, 0.8, 2.0, 1.5, 0.3)
 # From this start the optimiser converges to the swapped labelling of TRUTH.
 FAR_START = (0.0, 1.5, 6.0, 0.5, 1.4)
+# Both ranges far below the shortest lag of 0.25, so the model starts flat.
+FLAT_START = (0.05, 1.0, 0.001, 0.001, 0.0)
 # A 60:1 field, past the ratio of 50 above which anisotropy is treated as
 # unreliable.
 EXTREME_TRUTH = (0.05, 1.0, 6.0, 0.1, 0.6)
+# More fields past that ratio. Before the fallback tried several starts, the 55:1
+# Gaussian field had an isotropic fit with an infinite range replace the
+# anisotropic one, and the 67:1 exponential field returned ranges near 1e-40 as a
+# clean fit.
+EXTREME_FIELDS = {
+    "60:1": EXTREME_TRUTH,
+    "55:1": (0.1, 1.0, 5.5, 0.1, 0.2),
+    "67:1": (0.05, 1.0, 4.0, 0.06, 1.1),
+}
+RATIO_LIMIT = 50
 
 # The optimiser caps at 250 iterations. Every fit of TRUTH measured for these
 # tests converged in under 30.
@@ -39,11 +52,16 @@ ITERATION_BUDGET = 100
 TOLERANCE = 1e-5
 # The 60:1 field converges less tightly: the worst kept fit measured was 7e-6.
 EXTREME_TOLERANCE = 1e-4
-# A range on its floor, as returned by an isotropic fit that collapsed.
-COLLAPSED_RANGE = 1e-6 * (1 + 1e-9)
+# Mirrors MIN_SHAPE_SPREAD in the Rust core: a fitted shape that changes by less
+# than this across the observed lags is flat.
+MIN_SHAPE_SPREAD = 1e-3
+# The isotropic optimum is found by profiling the range on a grid, so it is only
+# as exact as the grid spacing.
+ISOTROPIC_OPTIMUM_TOLERANCE = 1e-3
 
 RATIO_WARNING = "exceeds recommended limits"
 REJECTION_WARNING = "Isotropic fallback rejected"
+FLAT_WARNING = "Ranges are not identifiable"
 
 DIRECTIONS = np.radians(np.arange(0, 180, 15))
 LAGS = np.linspace(0.25, 9.0, 18)
@@ -52,20 +70,49 @@ DISTANCES = _LAG_GRID.ravel()
 ANGLES = _DIRECTION_GRID.ravel()
 
 
-def _anisotropic_gamma(params, model):
-    nugget, sill, range_major, range_minor, rotation = params
+def _shape(model, h):
+    with np.errstate(over="ignore"):
+        if model == "exponential":
+            return 1.0 - np.exp(-h)
+        if model == "gaussian":
+            return 1.0 - np.exp(-(h**2))
+        return np.where(h < 1.0, 1.5 * h - 0.5 * h**3, 1.0)
+
+
+def _scaled_lags(params):
+    _, _, range_major, range_minor, rotation = params
     delta = ANGLES - rotation
-    h = np.hypot(
+    return np.hypot(
         DISTANCES * np.cos(delta) / range_major,
         DISTANCES * np.sin(delta) / range_minor,
     )
-    if model == "exponential":
-        shape = 1.0 - np.exp(-h)
-    elif model == "gaussian":
-        shape = 1.0 - np.exp(-(h**2))
-    else:
-        shape = np.where(h < 1.0, 1.5 * h - 0.5 * h**3, 1.0)
-    return nugget + (sill - nugget) * shape
+
+
+def _anisotropic_gamma(params, model):
+    nugget, sill = params[:2]
+    return nugget + (sill - nugget) * _shape(model, _scaled_lags(params))
+
+
+def _shape_spread(params, model):
+    # How much the fitted shape changes across the data, as a fraction of the rise
+    # from nugget to sill: 0 for a model that is flat.
+    shape = _shape(model, _scaled_lags(params))
+    return float(shape.max() - shape.min())
+
+
+def _isotropic_optimum_r2(gamma, model):
+    # The best R^2 any isotropic model reaches on this data. For a fixed range the
+    # model is linear in the nugget and the partial sill, so each range on a fine log
+    # grid is solved exactly by non-negative least squares.
+    total = np.sum((gamma - gamma.mean()) ** 2)
+    best = np.inf
+    for range_ in np.logspace(-4, 3, 1401):
+        design = np.column_stack(
+            [np.ones_like(DISTANCES), _shape(model, DISTANCES / range_)]
+        )
+        coefficients, _ = nnls(design, gamma)
+        best = min(best, np.sum((design @ coefficients - gamma) ** 2))
+    return 1.0 - best / total
 
 
 def _fit_gamma(gamma, start, model="exponential", directions=ANGLES):
@@ -195,37 +242,73 @@ def test_parameter_std_follows_the_axis_swap():
     )
 
 
-def test_extreme_anisotropy_is_never_reported_as_a_clean_fit():
-    # Ratios above 50 are treated as unreliable. The fit warns, then tries an
-    # isotropic fallback and uses it only if that fit is itself valid. On this field
-    # it usually is not: the isotropic fit collapses its range to the floor, giving
-    # a constant model. In that case the anisotropic fit is kept, with a warning,
-    # and not reported as converged.
+@pytest.mark.parametrize("model", MODELS)
+@pytest.mark.parametrize("field", EXTREME_FIELDS)
+def test_extreme_fields_follow_the_fallback_rule(field, model):
+    # Ratios above 50 are treated as unreliable. A fit that cannot be used -- it did
+    # not converge, or is flat across the data -- is replaced by the best usable
+    # isotropic fit. A usable fit with an extreme ratio is replaced only by an
+    # isotropic fit at least as good; otherwise it is kept, with warnings, and not
+    # reported as converged. No result may be flat.
     #
     # Which branch a start takes depends on the local optimum it reaches, so each
-    # result is held to the rule rather than pinned to a branch. Measured: 11 of the
-    # 12 starts reach the true 60:1 model and keep it; the twelfth reaches a
-    # different optimum, which a valid isotropic fit replaces.
-    gamma = _anisotropic_gamma(EXTREME_TRUTH, "exponential")
-    kept = 0
+    # result is held to the rule rather than pinned to a branch.
+    gamma = _anisotropic_gamma(EXTREME_FIELDS[field], model)
+    optimum = _isotropic_optimum_r2(gamma, model)
     for start in _extreme_starts():
-        result = _fit_gamma(gamma, start)
+        result = _fit_gamma(gamma, start, model)
+        params = np.asarray(result.parameters)
 
-        assert any(RATIO_WARNING in message for message in result.warnings), start
+        assert np.all(np.isfinite(params)), start
+        assert _shape_spread(params, model) >= MIN_SHAPE_SPREAD, start
         if result.fallback_used:
             assert result.status == "fallback_to_isotropic", start
             assert result.converged, start
+            assert params[2] == params[3], start
+            assert result.r_squared > optimum - ISOTROPIC_OPTIMUM_TOLERANCE, start
             assert not any(REJECTION_WARNING in m for m in result.warnings), start
-            assert result.parameters[2] > COLLAPSED_RANGE, start
-        else:
-            kept += 1
+        elif result.converged:
             assert result.status == "succeeded", start
-            assert not result.converged, start
+            assert params[2] / params[3] <= RATIO_LIMIT, start
+        else:
+            assert result.status == "succeeded", start
+            assert any(RATIO_WARNING in m for m in result.warnings), start
             assert any(REJECTION_WARNING in m for m in result.warnings), start
-            assert result.parameters[2] >= result.parameters[3], start
-            error = _canonical_error(result.parameters, EXTREME_TRUTH)
-            assert np.all(error < EXTREME_TOLERANCE), start
-    assert kept >= 1
+            assert result.r_squared > optimum, start
+
+
+@pytest.mark.parametrize("model", MODELS)
+def test_exact_extreme_fit_is_not_traded_for_an_isotropic_one(model):
+    # MODEST_START reaches the generating 60:1 model exactly. The best isotropic fit
+    # explains far less of the data -- R^2 0.15 to 0.43 across the three models -- so
+    # the anisotropic fit is kept, flagged as not converged, rather than replaced.
+    result = _fit(EXTREME_TRUTH, MODEST_START, model)
+
+    assert result.status == "succeeded"
+    assert not result.converged
+    assert not result.fallback_used
+    assert np.all(
+        _canonical_error(result.parameters, EXTREME_TRUTH) < EXTREME_TOLERANCE
+    )
+    assert any(RATIO_WARNING in m for m in result.warnings)
+    assert any("below the anisotropic fit's" in m for m in result.warnings)
+
+
+@pytest.mark.parametrize("model", MODELS)
+@pytest.mark.parametrize("truth", [TRUTH, EXTREME_TRUTH], ids=["3:1", "60:1"])
+def test_flat_fit_falls_back_to_the_isotropic_optimum(truth, model):
+    # From FLAT_START every range derivative is zero, so the optimality test passes
+    # without the fit moving. That fit is flat and cannot be used, so the best
+    # isotropic fit replaces it: the least-squares optimum, found from starts spread
+    # over the observed lags rather than one start from the flat ranges.
+    gamma = _anisotropic_gamma(truth, model)
+    result = _fit_gamma(gamma, FLAT_START, model)
+
+    assert result.status == "fallback_to_isotropic"
+    assert result.converged
+    assert any(FLAT_WARNING in m for m in result.warnings)
+    optimum = _isotropic_optimum_r2(gamma, model)
+    assert result.r_squared > optimum - ISOTROPIC_OPTIMUM_TOLERANCE
 
 
 def test_optimum_with_nugget_on_its_bound():
