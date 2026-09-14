@@ -73,13 +73,20 @@ def generate_anisotropic_field(
     rotation: float = np.pi / 6,
     seed: int = 1,
 ) -> Tuple[np.ndarray, np.ndarray]:
+    """A field whose major axis lies at ``rotation`` radians from the x-axis.
+
+    Distances across the major axis are shrunk by ``stretch``, so the range across
+    it is ``params.range * stretch`` and the anisotropy ratio is ``1 / stretch``.
+    Stretching after rotating, as this used to, always shortened the x-axis: the
+    major axis lay at 90 degrees whatever ``rotation`` was.
+    """
     coords, values = generate_isotropic_field(n_points, model, params, seed=seed)
     rot = np.array(
         [[np.cos(rotation), -np.sin(rotation)], [np.sin(rotation), np.cos(rotation)]]
     )
-    scaled = coords @ rot.T
-    scaled[:, 0] *= stretch
-    return scaled, values
+    stretched = coords.copy()
+    stretched[:, 1] *= stretch
+    return stretched @ rot.T, values
 
 
 def generate_nested_structure(
