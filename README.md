@@ -58,8 +58,8 @@ For development, including the test dependencies:
 pip install -e ".[dev,test]"
 ```
 
-Requires Python 3.9 or newer. Released wheels will target the stable ABI
-(`cp39-abi3`), so one wheel per platform covers every supported Python version.
+Requires Python 3.11 or newer. Released wheels will target the stable ABI
+(`cp311-abi3`), so one wheel per platform covers every supported Python version.
 
 ## Quick start
 

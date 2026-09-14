@@ -313,7 +313,7 @@ class ApproximateNeighborIndex:
         padded_distances = np.full((n_queries, actual_k), np.inf)
         padded_indices = np.full((n_queries, actual_k), -1, dtype=int)
 
-        for i, (dist, idx) in enumerate(zip(distances_list, indices_list)):
+        for i, (dist, idx) in enumerate(zip(distances_list, indices_list, strict=True)):
             n_neighbors = min(len(dist), actual_k)
             padded_distances[i, :n_neighbors] = dist[:n_neighbors]
             padded_indices[i, :n_neighbors] = idx[:n_neighbors]

@@ -6,13 +6,14 @@ Requirements
 
 PySpatialStats requires:
 
-* Python 3.9 or later
-* NumPy >= 1.20.0
-* SciPy >= 1.7.0
-* Pandas >= 1.3.0
-* GeoPandas >= 0.10.0
-* Scikit-learn >= 1.0.0
-* Matplotlib >= 3.5.0
+* Python 3.11 or later
+* NumPy >= 1.23.2
+* SciPy >= 1.9.2
+* Pandas >= 1.5.0
+* GeoPandas >= 0.11.0
+* Scikit-learn >= 1.1.3
+* Matplotlib >= 3.6.0
+* psutil >= 5.9.4
 
 System Dependencies
 -------------------

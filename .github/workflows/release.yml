@@ -71,8 +71,8 @@ jobs:
       fail-fast: false
       matrix:
         # One wheel per platform, not per platform per Python version. The
-        # crate builds against the stable ABI (abi3-py39), so a single
-        # cp39-abi3 wheel covers Python 3.9 through 3.14 and later. This
+        # crate builds against the stable ABI (abi3-py311), so a single
+        # cp311-abi3 wheel covers Python 3.11 through 3.14 and later. This
         # replaces the previous 3-OS x 4-version matrix of twelve builds, and
         # means a new Python release needs no rebuild at all.
         include:

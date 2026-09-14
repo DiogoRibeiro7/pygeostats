@@ -14,7 +14,7 @@ Thanks for helping improve **PySpatialStats**. This guide explains how to set up
 
 **Requirements**
 
-- Python **3.9 or newer** (CI covers 3.9 through 3.13)
+- Python **3.11 or newer** (CI covers 3.11 through 3.14)
 - Rust **stable** (with `cargo`, `rustfmt`, `clippy`)
 - Git
 
