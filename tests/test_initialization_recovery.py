@@ -146,3 +146,43 @@ def test_estimate_rotation_angle_interval_wraps_through_zero():
     assert (high - low) % 180.0 < 5.0
     assert result.angle_deg >= low or result.angle_deg <= high
     assert _axial_difference(result.angle_deg, 0.0) < 5.0
+
+
+def _ellipse_directional_results(axis_deg, major=0.5, minor=0.15):
+    """Exact exponential directional variograms whose ranges trace an ellipse."""
+    bin_centers = np.linspace(0.02, 1.2, 60)
+    results: Dict[float, DirectionalResult] = {}
+    for angle in np.arange(0.0, 180.0, 15.0):
+        practical_range = _ellipse_ranges(axis_deg, major, minor, [angle])[0]
+        gamma = 1.0 - np.exp(-3.0 * bin_centers / practical_range)
+        results[float(angle)] = DirectionalResult(
+            angle=float(angle),
+            bin_centers=bin_centers,
+            gamma=gamma,
+            counts=np.full(bin_centers.size, 10, dtype=int),
+            ci_lower=gamma,
+            ci_upper=gamma,
+        )
+    return results
+
+
+@pytest.mark.parametrize("axis", [178.0, 2.0, 60.0])
+def test_ensemble_angle_is_blended_as_an_axis(axis):
+    # Exact directional variograms, and sampling locations elongated along the same
+    # axis. The ensemble averaged its angles arithmetically: near 180 degrees the
+    # geometry angle and the vote came out near 0, and an axis at 178 was reported
+    # as 90.
+    rng = np.random.default_rng(0)
+    along = rng.uniform(-1.0, 1.0, 60)
+    across = rng.uniform(-0.15, 0.15, 60)
+    theta = np.radians(axis)
+    coords = np.column_stack(
+        [
+            along * np.cos(theta) - across * np.sin(theta),
+            along * np.sin(theta) + across * np.cos(theta),
+        ]
+    )
+
+    result = InitializationEnsemble(coords, _ellipse_directional_results(axis)).run()
+
+    assert _axial_difference(result.angle_deg, axis) < 5.0

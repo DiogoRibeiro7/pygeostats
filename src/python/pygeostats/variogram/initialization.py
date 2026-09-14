@@ -3,12 +3,13 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterable, Sequence
+from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 
+from ._axial import axial_mean
 from .directional import DirectionalResult
 from .geometry_analysis import SpatialGeometryAnalyzer
 
@@ -203,8 +204,7 @@ class InitializationEnsemble:
             (geom.primary_angle_deg, max(0.5, geom.diagnostics.get("pca_ratio", 1.0))),
         ]
 
-        combined_angle_rad = _weighted_circular_mean(method_angles)
-        combined_angle = (np.degrees(combined_angle_rad) + 180.0) % 180.0
+        combined_angle = axial_mean(method_angles)
 
         vote_angles = [
             int(round(angle / 15.0)) * 15 % 180 for angle, _ in method_angles
@@ -216,7 +216,9 @@ class InitializationEnsemble:
             vote_counts.items(),
             key=lambda item: (item[1], -abs(item[0] - combined_angle)),
         )[0]
-        ensemble_angle = (0.6 * combined_angle + 0.4 * voted_angle) % 180.0
+        # Blended as axes. The vote snaps to multiples of 15 degrees, so near 180 it
+        # comes out as 0, and the arithmetic blend of 178 and 0 is 107.
+        ensemble_angle = axial_mean([(combined_angle, 0.6), (voted_angle, 0.4)])
 
         grid_angles = np.arange(0.0, 180.0, 15.0)
         grid_records: List[Tuple[float, float]] = []
@@ -393,20 +395,6 @@ def _quality_from_confidence(level: str) -> float:
 def _quality_from_strength(label: str) -> float:
     return {"strong": 1.0, "moderate": 0.8, "weak": 0.6, "isotropic": 0.3}.get(
         label.lower(), 0.5
-    )
-
-
-def _weighted_circular_mean(angle_weights: Iterable[Tuple[float, float]]) -> float:
-    sin_sum = 0.0
-    cos_sum = 0.0
-    for angle_deg, weight in angle_weights:
-        angle_rad = np.deg2rad(angle_deg)
-        sin_sum += weight * np.sin(2.0 * angle_rad)
-        cos_sum += weight * np.cos(2.0 * angle_rad)
-    return (
-        0.5 * np.arctan2(sin_sum, cos_sum)
-        if (sin_sum != 0.0 or cos_sum != 0.0)
-        else 0.0
     )
 
 
