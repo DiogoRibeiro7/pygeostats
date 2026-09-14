@@ -24,15 +24,67 @@ REGULAR_GRID = np.array(
 )
 
 
-@pytest.mark.xfail(
-    reason="_sampling_pattern() classifies a perfect 4x2 lattice as irregular. "
-    "Expectation introduced in feca441 and never executed; needs the "
-    "classifier checked against the intended definition of 'regular'.",
-    strict=True,
-)
+def _grid(nx, ny):
+    xs, ys = np.meshgrid(np.arange(float(nx)), np.arange(float(ny)))
+    return np.column_stack([xs.ravel(), ys.ravel()])
+
+
+def _pattern(coords):
+    return SpatialGeometryAnalyzer(coords).analyze().sampling_pattern
+
+
 def test_regular_grid_is_classified_regular():
-    diag = SpatialGeometryAnalyzer(REGULAR_GRID).analyze()
-    assert diag.sampling_pattern == "regular"
+    # Classification used distances between consecutive rows. Listed row by row,
+    # this grid has a jump of sqrt(10) between its rows and came out irregular.
+    assert _pattern(REGULAR_GRID) == "regular"
+
+
+def test_sampling_pattern_does_not_depend_on_point_order():
+    # A 10x10 grid came out irregular in its row order, shuffled, and sorted by x.
+    grid = _grid(10, 10)
+    shuffled = grid[np.random.default_rng(0).permutation(len(grid))]
+
+    assert _pattern(grid) == "regular"
+    assert _pattern(shuffled) == "regular"
+
+
+def test_hexagonal_lattice_is_classified_regular():
+    lattice = np.array(
+        [
+            [i + 0.5 * (j % 2), j * np.sqrt(3.0) / 2.0]
+            for i in range(8)
+            for j in range(8)
+        ]
+    )
+    assert _pattern(lattice) == "regular"
+
+
+@pytest.mark.parametrize(
+    ("jitter", "expected"), [(0.1, "regular"), (0.3, "quasi-regular")]
+)
+def test_jittered_grid(jitter, expected):
+    # Uniform jitter of up to jitter * spacing in each coordinate. Over 20 seeds the
+    # nearest-neighbour coefficient of variation was 0.05 at 0.1 and 0.17 to 0.20 at
+    # 0.3, against thresholds of 0.15 and 0.35.
+    grid = _grid(20, 20)
+    offsets = np.random.default_rng(0).uniform(-jitter, jitter, size=grid.shape)
+    assert _pattern(grid + offsets) == expected
+
+
+def test_random_cloud_is_classified_irregular():
+    rng = np.random.default_rng(4)
+    coords = rng.uniform(-1.0, 1.0, size=(40, 2))
+    assert SpatialGeometryAnalyzer(coords).analyze().sampling_pattern == "irregular"
+
+
+def test_repeated_location_is_counted_once():
+    # A duplicate's nearest neighbour is at distance 0. Counted twice, this one
+    # location would put the grid's coefficient of variation at 0.54.
+    assert _pattern(np.vstack([REGULAR_GRID, REGULAR_GRID[:1]])) == "regular"
+
+
+def test_coincident_points_are_insufficient():
+    assert _pattern(np.zeros((3, 2))) == "insufficient"
 
 
 def test_regular_grid_primary_axis_is_along_the_long_side():
@@ -40,12 +92,6 @@ def test_regular_grid_primary_axis_is_along_the_long_side():
     diag = SpatialGeometryAnalyzer(REGULAR_GRID).analyze()
     angle = diag.primary_angle_deg
     assert 0.0 <= angle <= 1.0 or 179.0 <= angle <= 180.0
-
-
-def test_random_cloud_is_classified_irregular():
-    rng = np.random.default_rng(4)
-    coords = rng.uniform(-1.0, 1.0, size=(40, 2))
-    assert SpatialGeometryAnalyzer(coords).analyze().sampling_pattern == "irregular"
 
 
 def test_analyze_rejects_degenerate_input():
