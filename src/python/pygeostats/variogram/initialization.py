@@ -268,7 +268,14 @@ def estimate_rotation_angle(
     weights: Optional[Sequence[float]] = None,
     phi_step_deg: float = 0.5,
 ) -> AngleEstimationResult:
-    """Estimate the primary anisotropy angle from directional variogram ranges."""
+    """Estimate the primary anisotropy angle from directional variogram ranges.
+
+    An ellipse is fitted through the ranges. ``angle_deg`` is the angle of its major
+    axis, in degrees counter-clockwise from the x-axis in [0, 180), and ``ratio`` is
+    its major range over its minor one, so never below 1. ``angle_confidence`` is
+    ``(low, high)`` in the same range; when the interval crosses 0 degrees, ``low``
+    is greater than ``high``.
+    """
 
     directions = np.asarray(list(directions_deg), dtype=float)
     ranges = np.asarray(list(ranges), dtype=float)
@@ -315,19 +322,23 @@ def estimate_rotation_angle(
             diagnostics={"fallback": 1.0},
         )
 
-    threshold = best["sse"] * 1.05 + 1e-12
-    admissible_phis = [rec["phi"] for rec in records if rec["sse"] <= threshold]
-    if len(admissible_phis) >= 2:
-        phi_low = float(np.degrees(min(admissible_phis)) % 180.0)
-        phi_high = float(np.degrees(max(admissible_phis)) % 180.0)
-        if phi_low > phi_high:
-            phi_low, phi_high = phi_high, phi_low
-        conf_interval = (phi_low, phi_high)
-    else:
-        base = float(np.degrees(best["phi"]) % 180.0)
-        conf_interval = (max(base - 10.0, 0.0), min(base + 10.0, 180.0))
-
     angle_deg = float(np.degrees(best["phi"]) % 180.0)
+    threshold = best["sse"] * 1.05 + 1e-12
+    # Offsets of every near-best fit from the estimate, taken axially so they lie in
+    # [-90, 90). The minimum and maximum of the raw angles ignored the wrap at 0 and
+    # 180 degrees.
+    offsets = [
+        (float(np.degrees(rec["phi"])) - angle_deg + 90.0) % 180.0 - 90.0
+        for rec in records
+        if rec["sse"] <= threshold
+    ]
+    if len(offsets) >= 2:
+        conf_interval = (
+            (angle_deg + min(offsets)) % 180.0,
+            (angle_deg + max(offsets)) % 180.0,
+        )
+    else:
+        conf_interval = ((angle_deg - 10.0) % 180.0, (angle_deg + 10.0) % 180.0)
     ratio = float(best["ratio"])
 
     max_range = float(ranges.max())
@@ -449,15 +460,23 @@ def _fit_ellipse_for_phi(
     sse = float(np.sum(w * residuals**2))
     rmse = float(np.sqrt(sse / w_sum))
 
-    major = 1.0 / np.sqrt(alpha)
-    minor = 1.0 / np.sqrt(beta)
-    ratio = float(major / max(minor, _EPS))
+    # alpha belongs to the axis at phi and beta to the one 90 degrees round. The fit
+    # at phi + 90 degrees is the same ellipse with the roles swapped and the same
+    # error, so the grid search reported whichever it met first: from exact ranges
+    # the minor axis came back as the major one in 3 to 5 of 8 orientations, with
+    # a ratio below 1. Report the longer axis.
+    range_along = 1.0 / np.sqrt(alpha)
+    range_across = 1.0 / np.sqrt(beta)
+    if range_along >= range_across:
+        major_phi, major, minor = phi, range_along, range_across
+    else:
+        major_phi, major, minor = (phi + 0.5 * _PI) % _PI, range_across, range_along
 
     return {
-        "phi": phi,
+        "phi": float(major_phi),
         "major": float(max(major, _EPS)),
         "minor": float(max(minor, _EPS)),
-        "ratio": ratio,
+        "ratio": float(major / max(minor, _EPS)),
         "rmse": rmse,
         "sse": sse,
     }

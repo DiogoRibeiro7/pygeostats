@@ -49,8 +49,9 @@ class DirectionalVariogram:
     values : array-like, shape (n_samples,)
         Sample values.
     directions : sequence of float, optional
-        Directions (degrees) for which directional variograms are computed.
-        Defaults to ``(0, 45, 90, 135)`` if not provided.
+        Directions (degrees) for which directional variograms are computed,
+        measured counter-clockwise from the x-axis. A direction and its opposite
+        select the same pairs. Defaults to ``(0, 45, 90, 135)`` if not provided.
     tolerance : float, default=22.5
         Angular tolerance (degrees) defining the half-window around each
         direction.
@@ -277,7 +278,18 @@ class DirectionalVariogram:
         ratio_threshold: float = 1.2,
         range_difference: float = 0.0,
     ) -> AnisotropyResult:
-        """Detect geometric anisotropy from directional variograms."""
+        """Detect geometric anisotropy from directional variograms.
+
+        Each direction's range is the first lag at which its variogram reaches
+        ``sill_fraction`` of the largest semivariance in any direction, or its
+        largest lag if it never does. With three or more directions an ellipse is
+        fitted through those ranges: ``major_direction`` is the angle of its long
+        axis, in degrees counter-clockwise from the x-axis in [0, 180), and
+        ``anisotropy_ratio`` is its long axis over its short one. The ratio runs
+        low, because ranges are capped at the largest lag and a noisy maximum sets
+        the threshold, so treat it as a detection statistic rather than an
+        estimate of the true ratio.
+        """
 
         if not self.is_fitted:
             raise RuntimeError("compute() must be called before anisotropy detection")
@@ -315,18 +327,42 @@ class DirectionalVariogram:
                 False, np.nan, np.nan, 1.0, ranges, sill, diagnostics
             )
 
-        major_direction = max(finite_ranges, key=finite_ranges.get)
-        minor_direction = min(finite_ranges, key=finite_ranges.get)
-        max_range = finite_ranges[major_direction]
-        min_range = finite_ranges[minor_direction]
-        ratio = max_range / max(min_range, 1e-9)
+        max_range = max(finite_ranges.values())
+        min_range = min(finite_ranges.values())
+        if len(finite_ranges) >= 3:
+            # Taking the direction with the longest range failed three ways: the
+            # answer could only be a sampled direction, ranges snap to bin centres so
+            # directions tie, and ties went to whichever direction came first. On
+            # fields with a known axis it was 22 to 45 degrees off in the median. An
+            # ellipse fitted through every directional range places the axis
+            # between the sampled directions. initialization imports this module,
+            # hence the local import.
+            from .initialization import estimate_rotation_angle
+
+            angles = list(finite_ranges)
+            estimate = estimate_rotation_angle(
+                angles, [finite_ranges[angle] for angle in angles]
+            )
+            major_direction = estimate.angle_deg
+            minor_direction = (major_direction + 90.0) % 180.0
+            ratio = estimate.ratio
+            major_range = estimate.diagnostics.get("major_range", max_range)
+            minor_range = estimate.diagnostics.get("minor_range", min_range)
+        else:
+            # Two directions cannot determine an ellipse.
+            major_direction = max(finite_ranges, key=finite_ranges.get)
+            minor_direction = min(finite_ranges, key=finite_ranges.get)
+            major_range, minor_range = max_range, min_range
+            ratio = max_range / max(min_range, 1e-9)
         is_aniso = (ratio >= ratio_threshold) and (
-            (max_range - min_range) >= range_difference
+            (major_range - minor_range) >= range_difference
         )
         diagnostics = {
             "max_range": max_range,
             "min_range": min_range,
-            "range_difference": max_range - min_range,
+            "major_range": major_range,
+            "minor_range": minor_range,
+            "range_difference": major_range - minor_range,
         }
         return AnisotropyResult(
             is_aniso,
