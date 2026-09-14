@@ -73,7 +73,15 @@ class EnsembleResult:
 
 
 class RangeInitializer:
-    """Derive range, sill, and nugget initial values from directional variograms."""
+    """Derive range, sill, and nugget initial values from directional variograms.
+
+    Each direction's range is the first lag at which its variogram reaches 90% of
+    its own largest value, and the major and minor ranges are the longest and
+    shortest of those. They are starting values for a fit, not estimates of a
+    model's range parameter: for an exponential curve that levels off within the
+    lags the value lands at about 2.2 to 2.6 times the range, and for one that does
+    not it lands near the largest lag.
+    """
 
     REQUIRED_DIRECTIONS: Tuple[float, ...] = (0.0, 30.0, 60.0, 90.0, 120.0, 150.0)
 
