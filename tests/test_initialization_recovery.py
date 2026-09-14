@@ -186,3 +186,69 @@ def test_ensemble_angle_is_blended_as_an_axis(axis):
     result = InitializationEnsemble(coords, _ellipse_directional_results(axis)).run()
 
     assert _axial_difference(result.angle_deg, axis) < 5.0
+
+
+ENSEMBLE_COORDS = np.random.default_rng(0).uniform(-1.0, 1.0, size=(60, 2))
+
+
+def _empty_directional_result(angle):
+    bin_centers = np.linspace(0.02, 1.2, 60)
+    missing = np.full(bin_centers.size, np.nan)
+    return DirectionalResult(
+        angle=angle,
+        bin_centers=bin_centers,
+        gamma=missing,
+        counts=np.zeros(bin_centers.size, dtype=int),
+        ci_lower=missing,
+        ci_upper=missing,
+    )
+
+
+def test_ensemble_does_not_depend_on_direction_order():
+    # The ranges followed the results' insertion order while their angles were
+    # sorted. Exact variograms of an axis at 60 degrees, listed in reverse, moved
+    # the ensemble angle from 74.4 to 84.2 degrees.
+    results = _ellipse_directional_results(60.0)
+    reversed_results = dict(reversed(list(results.items())))
+
+    forward = InitializationEnsemble(ENSEMBLE_COORDS, results).run()
+    backward = InitializationEnsemble(ENSEMBLE_COORDS, reversed_results).run()
+
+    assert backward.angle_deg == pytest.approx(forward.angle_deg)
+    assert backward.top_candidates == forward.top_candidates
+
+
+def test_ensemble_skips_a_direction_without_a_range():
+    # A direction with no populated bins has no range. Skipping it shortened the
+    # ranges but not the angles, and the ellipse fit raised on the mismatch.
+    results = _ellipse_directional_results(60.0)
+    with_gap = dict(results)
+    with_gap[45.0] = _empty_directional_result(45.0)
+    without = {angle: res for angle, res in results.items() if angle != 45.0}
+
+    gap = InitializationEnsemble(ENSEMBLE_COORDS, with_gap).run()
+    removed = InitializationEnsemble(ENSEMBLE_COORDS, without).run()
+
+    assert gap.angle_deg == pytest.approx(removed.angle_deg)
+
+
+@pytest.mark.parametrize("angles", [(0.0, 90.0), (30.0,)], ids=["two", "one"])
+def test_ensemble_with_fewer_than_three_ranges_falls_back(angles):
+    # An ellipse needs three directional ranges. With two the fit raised, and the
+    # fallback for fewer than two supplied only two ranges and raised as well.
+    every_direction = _ellipse_directional_results(60.0)
+    results = {angle: every_direction[angle] for angle in angles}
+
+    result = InitializationEnsemble(ENSEMBLE_COORDS, results).run()
+
+    assert result.confidence == "low"
+    assert 0.0 <= result.angle_deg < 180.0
+
+
+def test_ensemble_without_any_range_raises():
+    results = {
+        0.0: _empty_directional_result(0.0),
+        90.0: _empty_directional_result(90.0),
+    }
+    with pytest.raises(ValueError, match="No valid directional ranges"):
+        InitializationEnsemble(ENSEMBLE_COORDS, results).run()
