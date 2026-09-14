@@ -69,7 +69,12 @@ class EmpiricalVariogram:
                 from scipy.spatial.distance import pdist
 
                 distances = pdist(self.coordinates)
-                self.max_distance = np.max(distances) / 2.0
+                # A single point has no pairs, so its variogram is empty -- which is
+                # what the core returns for it when bin edges are given. Taking the
+                # maximum of no distances raised instead.
+                self.max_distance = (
+                    float(np.max(distances)) / 2.0 if distances.size else 0.0
+                )
 
             self.bin_edges = np.linspace(0, self.max_distance, self.n_bins + 1)
 

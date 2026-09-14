@@ -8,6 +8,7 @@ from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
 from pygeostats.variogram.empirical import EmpiricalVariogram
 from pygeostats.variogram.models import Variogram
+from scipy.stats import spearmanr
 
 from .data_generation import VariogramParameters, generate_isotropic_field
 
@@ -81,12 +82,9 @@ def test_empirical_variogram_zero_distance_duplicate_points():
     assert np.isclose(ev.gamma_[zero_bin][0], 0.0, atol=1e-10)
 
 
-@pytest.mark.xfail(
-    reason="EmpiricalVariogram.compute() crashes on a single point: np.max() is called on the empty distance array at empirical.py:70 before any guard. Should return empty bins instead of raising.",
-    raises=ValueError,
-    strict=True,
-)
 def test_empirical_variogram_handles_single_point():
+    # A single point has no pairs. With default bin edges compute() used to raise,
+    # taking the maximum of an empty distance array.
     coords = np.array([[0.2, 0.4]])
     values = np.array([5.0])
     ev = EmpiricalVariogram(coords, values, n_bins=2).compute()
@@ -109,17 +107,27 @@ def test_empirical_variogram_extreme_values():
     assert np.all(np.isfinite(ev.gamma_[mask]))
 
 
-@pytest.mark.xfail(
-    reason="Asserts an empirical variogram is monotonically non-decreasing, which is not a property of empirical variograms -- they are noisy estimates and dip freely. The test expectation itself is most likely wrong.",
-    strict=True,
-)
-def test_variogram_monotonic_for_synthetic_field():
+def test_variogram_rises_from_short_to_long_lags():
+    # An empirical variogram is a noisy estimate and dips freely: for this field it
+    # was non-decreasing on 1 seed in 100, so that is not a property to test. The
+    # trend is. Over 100 seeds the first third of populated bins averaged below the
+    # last third every time, and the rank correlation between lag and semivariance
+    # was at least 0.28, with a median of 0.86. The set of seeds is held to that
+    # with margin rather than each seed.
     params = VariogramParameters(nugget=0.05, sill=1.0, range=0.4)
-    coords, values = generate_isotropic_field(40, "exponential", params, seed=7)
-    ev = EmpiricalVariogram(coords, values, n_bins=10).compute()
-    mask = ev.counts_ > 0
-    filtered = ev.gamma_[mask]
-    assert np.all(np.diff(filtered) >= -1e-4)
+    rises = 0
+    correlations = []
+    for seed in range(20):
+        coords, values = generate_isotropic_field(40, "exponential", params, seed=seed)
+        ev = EmpiricalVariogram(coords, values, n_bins=10).compute()
+        populated = ev.counts_ > 0
+        gamma = ev.gamma_[populated]
+        third = max(len(gamma) // 3, 1)
+        rises += int(gamma[:third].mean() < gamma[-third:].mean())
+        correlations.append(spearmanr(ev.distances_[populated], gamma).correlation)
+
+    assert rises >= 18
+    assert np.median(correlations) > 0.5
 
 
 @pytest.mark.parametrize("model", ["exponential", "spherical", "gaussian"])
