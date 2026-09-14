@@ -8,11 +8,12 @@ point-pattern analysis and spatial autocorrelation.
 
 ## Status
 
-**Pre-release. Not yet published to PyPI, and not ready for production use.**
+**Alpha. `0.1.0a1` is published to PyPI as a pre-release, and the package is not
+ready for production use.**
 
-The package builds and imports, the test suite runs green, and wheels build for
-Linux, macOS and Windows on x86_64 and arm64. The remaining known defects are
-tracked as strict `xfail` tests and listed under
+The package builds and imports, and the test suite runs green. Wheels are
+published for Linux and macOS on x86_64 and arm64, and for Windows on x86_64.
+Known defects and unfinished features are listed under
 [Known limitations](#known-limitations); read that section before relying on
 directional or anisotropy analysis.
 
@@ -43,8 +44,20 @@ on PyPI by Jasper Roebroek. The two are unrelated.
 
 ## Installation
 
-Not on PyPI yet, so install from source. A Rust toolchain is required, since
-the core extension is compiled:
+```bash
+pip install pygeostats
+```
+
+Requires Python 3.11 or newer. Wheels are built against the stable ABI
+(`cp311-abi3`), so one wheel per platform covers every supported Python version.
+On platforms without a wheel, pip builds from the source distribution, which
+needs a Rust toolchain.
+
+`0.1.0a1` is a pre-release. pip installs it while no stable release exists; once
+one does, `pip install --pre pygeostats` is needed to get pre-releases.
+
+To build from source, a Rust toolchain is required, since the core extension is
+compiled:
 
 ```bash
 git clone https://github.com/DiogoRibeiro7/pygeostats.git
@@ -57,9 +70,6 @@ For development, including the test dependencies:
 ```bash
 pip install -e ".[dev,test]"
 ```
-
-Requires Python 3.11 or newer. Released wheels will target the stable ABI
-(`cp311-abi3`), so one wheel per platform covers every supported Python version.
 
 ## Quick start
 
@@ -100,22 +110,22 @@ result = morans_i(values, weights)
 
 ## Known limitations
 
-These are real defects, each covered by a strict `xfail` test so that the build
-fails if one is silently fixed. They are not cosmetic:
-
-* `detect_anisotropy()` reports a major direction 45° away from the truth on a
-  synthetic anisotropic field.
-* Directional bandwidth filtering discards every pair rather than a subset.
-* `EmpiricalVariogram.compute()` raises on a single input point instead of
-  returning empty bins.
-* `DirectionalVariogram.estimate_initial_parameters()` and
-  `create_anisotropic_variogram_from_directional()` raise `NotImplementedError`.
-  They call a helper that was never written. Use `InitializationEnsemble` or
-  `RangeInitializer` from `pygeostats.variogram.initialization` instead.
-* `RangeInitializer.estimate()` does not recover the major and minor range of a
-  synthetic anisotropic field to the tolerance originally asserted for it.
-  Whether the estimator or that tolerance is wrong is unresolved.
-* The sampling-pattern diagnostic classifies a regular 4×2 lattice as irregular.
+* The workflow from directional variograms to anisotropic kriging is not
+  implemented. `DirectionalVariogram.estimate_initial_parameters()` and
+  `create_anisotropic_variogram_from_directional()` raise
+  `NotImplementedError`, and both are covered by strict `xfail` tests.
+  `InitializationEnsemble` and `RangeInitializer` from
+  `pygeostats.variogram.initialization` provide starting values in the meantime.
+* `detect_anisotropy()` estimates the anisotropy axis, but its ratio runs low:
+  about 1.4 for a 2.9:1 field, against about 1.06 for an isotropic one. Treat it
+  as a detection statistic rather than an estimate of the true ratio. At the
+  default `ratio_threshold` of 1.2, some isotropic fields are flagged as
+  anisotropic.
+* `RangeInitializer` returns starting values for a fit, not estimates of a
+  model's range parameter.
+* `InitializationEnsemble` blends the principal axis of the sampling locations
+  into its angle, which can pull it off the field's axis: in one test it reported
+  74 degrees for an axis at 60.
 
 The point-pattern, spatial-autocorrelation and clustering modules are not
 affected by any of the above and pass their tests.
@@ -133,7 +143,7 @@ runs as an advisory CI step rather than a gate.
 ```bash
 pip install -e ".[dev,test]"
 
-pytest tests/                  # 99 passed, 8 xfailed
+pytest tests/                  # 183 passed, 2 xfailed
 black --check src/python/ tests/
 ruff check src/python/ tests/
 cargo fmt --all -- --check
@@ -148,7 +158,8 @@ cargo test --no-default-features --features parallel
 The Rust toolchain is pinned in `rust-toolchain.toml`, so rustup will fetch the
 matching compiler automatically.
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for the full workflow and
+See [CHANGELOG.md](CHANGELOG.md) for release notes,
+[CONTRIBUTING.md](CONTRIBUTING.md) for the full workflow and
 [ROADMAP.md](ROADMAP.md) for planned work.
 
 ## License

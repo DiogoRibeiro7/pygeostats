@@ -4,7 +4,7 @@ Installation
 Requirements
 ------------
 
-PySpatialStats requires:
+pygeostats requires:
 
 * Python 3.11 or later
 * NumPy >= 1.23.2
@@ -15,48 +15,32 @@ PySpatialStats requires:
 * Matplotlib >= 3.6.0
 * psutil >= 5.9.4
 
-System Dependencies
--------------------
-
-For optimal performance, install BLAS/LAPACK libraries:
-
-**Ubuntu/Debian:**
-
-.. code-block:: bash
-
-   sudo apt-get install libopenblas-dev liblapack-dev
-
-**macOS:**
-
-.. code-block:: bash
-
-   brew install openblas lapack
-
-**Windows:**
-
-BLAS/LAPACK libraries are typically included with scientific Python distributions like Anaconda.
+No system libraries are needed. The Rust core uses pure-Rust linear algebra, so
+there is no BLAS or LAPACK to install.
 
 Installation Methods
 --------------------
 
-From PyPI (Recommended)
-~~~~~~~~~~~~~~~~~~~~~~~
+From PyPI
+~~~~~~~~~
 
 .. code-block:: bash
 
    pip install pygeostats
 
-From Conda-Forge
-~~~~~~~~~~~~~~~~~
+Wheels are published for Linux (x86_64 and aarch64), macOS (Intel and Apple
+silicon) and Windows (x86_64). They are built against the stable ABI, so one
+wheel per platform covers Python 3.11 and newer. On platforms without a wheel,
+pip builds from the source distribution, which needs a Rust toolchain.
 
-.. code-block:: bash
-
-   conda install -c conda-forge pygeostats
+The current release, 0.1.0a1, is a pre-release. pip installs it while no stable
+release exists; once one does, use ``pip install --pre pygeostats`` to get
+pre-releases.
 
 From Source
 ~~~~~~~~~~~
 
-For development or the latest features:
+For development or the latest changes:
 
 .. code-block:: bash
 
@@ -64,15 +48,10 @@ For development or the latest features:
    curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
    source $HOME/.cargo/env
 
-   # Clone and install
+   # Clone and install, with the development and test dependencies
    git clone https://github.com/DiogoRibeiro7/pygeostats.git
    cd pygeostats
-   
-   # Install maturin
-   pip install maturin
-   
-   # Build and install in development mode
-   maturin develop --extras dev
+   pip install -e ".[dev,test]"
 
 Verification
 ------------
@@ -92,7 +71,7 @@ Test your installation:
    values = np.random.randn(10)
    emp_vario = EmpiricalVariogram(coords, values)
    emp_vario.compute()
-   
+
    print("Installation successful!")
 
 Troubleshooting
@@ -106,22 +85,5 @@ This usually indicates the Rust extension wasn't compiled properly. Try:
 
    pip uninstall pygeostats
    pip install --no-cache-dir pygeostats
-
-**BLAS/LAPACK Errors**
-
-Install the appropriate system libraries as described above, then reinstall:
-
-.. code-block:: bash
-
-   pip install --force-reinstall --no-cache-dir pygeostats
-
-**Compilation Issues on Apple Silicon**
-
-If you encounter issues on M1/M2 Macs:
-
-.. code-block:: bash
-
-   export MACOSX_DEPLOYMENT_TARGET=11.0
-   pip install pygeostats
 
 For more help, please open an issue on our `GitHub repository <https://github.com/DiogoRibeiro7/pygeostats>`_.
