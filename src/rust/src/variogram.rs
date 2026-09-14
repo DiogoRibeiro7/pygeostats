@@ -22,6 +22,11 @@ const TRACE_LIMIT: usize = 64;
 const TIMEOUT_MIN_SECONDS: f64 = 0.5;
 const TIMEOUT_PER_SAMPLE_MICROS: f64 = 4.0;
 const MAX_RATIO_REASONABLE: f64 = 50.0;
+// A fitted shape that changes by less than this across every observed lag, as a
+// fraction of the rise from nugget to sill, is flat: its ranges have no effect on
+// the fit. Measured fits fell either side of it with a wide gap -- none varied by
+// between 1e-3 and 1e-2.
+const MIN_SHAPE_SPREAD: f64 = 1e-3;
 const CACHE_EPS: f64 = 1e-12;
 
 #[allow(dead_code)]
@@ -1365,6 +1370,21 @@ fn run_levenberg_marquardt_internal(
         ));
     }
 
+    // The anisotropic fit can pass the same way at either end: ranges far below the
+    // shortest lag, or far beyond the longest, leave the model flat across the data
+    // in every direction. Unless the caller fixed both ranges, that is not a fit.
+    if anisotropic
+        && status.is_success()
+        && fix_mask.len() >= 4
+        && !(fix_mask[2] && fix_mask[3])
+        && shape_spread(model, true, &dataset, &final_params) < MIN_SHAPE_SPREAD
+    {
+        status = OptimizationStatus::InvalidParameters;
+        warnings.push(String::from(
+            "Ranges are not identifiable: the fitted model is flat across every observed lag and direction",
+        ));
+    }
+
     // Put the longer axis first. An ellipse with its axes swapped and its rotation
     // advanced by 90 degrees is the same model, so the optimiser converges to
     // either labelling depending on where it starts. Callers -- and
@@ -1448,29 +1468,38 @@ fn run_levenberg_marquardt_internal(
     };
 
     if anisotropic && allow_fallback {
-        let fallback_needed = !summary.converged
-            || matches!(
-                summary.status,
-                OptimizationStatus::Timeout
-                    | OptimizationStatus::InvalidParameters
-                    | OptimizationStatus::SingularMatrix
-                    | OptimizationStatus::Diverged
-            )
-            || summary.diagnostics.ratio.is_nan()
-            || summary.diagnostics.ratio.is_infinite()
-            || summary.diagnostics.ratio > MAX_RATIO_REASONABLE
+        // An unusable fit -- one that did not converge, is flat, or has a non-finite
+        // ratio -- is replaced by any usable isotropic fit. A fit that converged to a
+        // usable model but trips a reliability check, an extreme ratio or an
+        // isotropic baseline that beats it, is replaced only by an isotropic fit
+        // that is at least as good: an exact fit is not traded for a worse one.
+        let ratio = summary.diagnostics.ratio;
+        let unusable = !summary.converged || ratio.is_nan() || ratio.is_infinite();
+        let suspect = ratio > MAX_RATIO_REASONABLE
             || summary
                 .diagnostics
                 .isotropic_r2
                 .is_some_and(|iso_r2| iso_r2 > summary.r_squared + 1e-6);
 
-        if fallback_needed {
+        if unusable || suspect {
+            let min_r_squared = if unusable {
+                f64::NEG_INFINITY
+            } else {
+                summary.r_squared
+            };
             // Whenever the fallback does not replace the anisotropic fit, the fit
             // has tripped a reliability check that nothing resolved. It is kept,
             // because it is still the model that fits, but it is not reported as
             // converged; the warnings say why. status stays the optimiser's own
             // outcome, so this is the one case where converged and status differ.
-            match attempt_isotropic_fallback(model, &dataset, fix_mask, &final_params, &summary) {
+            match attempt_isotropic_fallback(
+                model,
+                &dataset,
+                fix_mask,
+                &final_params,
+                &summary,
+                min_r_squared,
+            ) {
                 Ok(FallbackOutcome::Replaced(fallback_summary)) => {
                     return Ok(*fallback_summary);
                 }
@@ -1512,6 +1541,7 @@ fn attempt_isotropic_fallback(
     fix_mask: &[bool],
     final_params: &[f64],
     anisotropic_summary: &OptimizationSummary,
+    min_r_squared: f64,
 ) -> PyResult<FallbackOutcome> {
     if final_params.len() < 5 {
         return Ok(FallbackOutcome::NotApplicable);
@@ -1542,29 +1572,91 @@ fn attempt_isotropic_fallback(
     iso_dataset.cos_dirs = None;
     iso_dataset.sin_dirs = None;
 
-    let mut opt_params = iso_initial.clone();
-    let fallback_result = run_levenberg_marquardt_internal(
-        model,
-        iso_dataset,
-        &mut opt_params,
-        &iso_fix_mask,
-        false,
-        false,
-    );
+    // Levenberg-Marquardt is local. From the mean of the two anisotropic ranges the
+    // isotropic fit on a strongly anisotropic field ran its range to the floor or far
+    // beyond the data, where the model is flat and the optimality test passes
+    // vacuously. As in Variogram.fit, starts spread over the observed lags are tried
+    // as well, and the best usable result is kept.
+    let mut range_starts = vec![range_iso];
+    if !iso_fix_mask[2] {
+        range_starts.push((range_major * range_minor).sqrt());
+        let positive_lags = || {
+            iso_dataset
+                .distances
+                .iter()
+                .copied()
+                .filter(|d| *d > 0.0 && d.is_finite())
+        };
+        let min_lag = positive_lags().fold(f64::INFINITY, f64::min);
+        let max_lag = positive_lags().fold(0.0, f64::max);
+        if min_lag.is_finite() && max_lag > 0.0 {
+            range_starts.extend([
+                2.0 * min_lag,
+                max_lag / 8.0,
+                max_lag / 4.0,
+                max_lag / 2.0,
+                max_lag,
+            ]);
+        }
+        range_starts.retain(|r| r.is_finite() && *r > MIN_RANGE);
+        if range_starts.is_empty() {
+            range_starts.push(range_iso);
+        }
+    }
 
-    let mut fallback_summary = fallback_result?;
+    let mut best: Option<OptimizationSummary> = None;
+    let mut failures: Vec<String> = Vec::new();
+    for &range_start in &range_starts {
+        let mut opt_params = iso_initial.clone();
+        if !iso_fix_mask[2] {
+            opt_params[2] = range_start;
+        }
+        let candidate = match run_levenberg_marquardt_internal(
+            model,
+            iso_dataset.clone(),
+            &mut opt_params,
+            &iso_fix_mask,
+            false,
+            false,
+        ) {
+            Ok(candidate) => candidate,
+            Err(err) => {
+                failures.push(format!("from range {range_start:.4}: {err}"));
+                continue;
+            }
+        };
+        let flat = !iso_fix_mask[2]
+            && shape_spread(model, false, &iso_dataset, &candidate.parameters) < MIN_SHAPE_SPREAD;
+        if !candidate.status.is_success() {
+            failures.push(format!(
+                "from range {range_start:.4}: {}",
+                candidate.status.as_str()
+            ));
+        } else if flat || candidate.parameters.iter().any(|p| !p.is_finite()) {
+            failures.push(format!(
+                "from range {range_start:.4}: flat across the observed lags"
+            ));
+        } else if best
+            .as_ref()
+            .is_none_or(|current| candidate.r_squared > current.r_squared)
+        {
+            best = Some(candidate);
+        }
+    }
 
-    // Only replace the anisotropic fit with a usable isotropic one. On a strongly
-    // anisotropic field the isotropic fit can collapse its range to the floor -- a
-    // constant, pure-nugget model -- which is worse than the fit it would replace,
-    // and used to be returned as converged regardless.
-    if !fallback_summary.status.is_success() {
-        let mut reasons = vec![format!(
-            "Isotropic fallback rejected: its fit ended with status {}, so the anisotropic fit is returned and not reported as converged",
-            fallback_summary.status.as_str()
-        )];
-        reasons.extend(fallback_summary.warnings.iter().cloned());
-        return Ok(FallbackOutcome::Rejected(reasons));
+    let Some(mut fallback_summary) = best else {
+        return Ok(FallbackOutcome::Rejected(vec![format!(
+            "Isotropic fallback rejected: none of its {} starts produced a usable fit ({}), so the anisotropic fit is returned and not reported as converged",
+            range_starts.len(),
+            failures.join("; ")
+        )]));
+    };
+
+    if fallback_summary.r_squared + 1e-6 < min_r_squared {
+        return Ok(FallbackOutcome::Rejected(vec![format!(
+            "Isotropic fallback rejected: the best isotropic fit reaches R^2 {:.4}, below the anisotropic fit's {:.4}, so the anisotropic fit is returned and not reported as converged",
+            fallback_summary.r_squared, min_r_squared
+        )]));
     }
 
     if fallback_summary.parameters.len() >= 3 {
@@ -1632,6 +1724,43 @@ fn compute_isotropic_baseline(
 
     let iso_params = vec![nugget, sill, range_iso];
     compute_statistics(model, false, &iso_dataset, &iso_params)
+}
+
+/// How much the fitted shape changes across the observations at positive lags, as a
+/// fraction of the rise from nugget to sill: 0 for a model that is constant across
+/// the data, close to 1 for one that rises from nugget to sill inside it, and 0 when
+/// the shape cannot be evaluated. Parameters are in the optimiser's internal form.
+/// NaN when no observation has a positive lag.
+fn shape_spread(
+    model: VariogramModel,
+    anisotropic: bool,
+    dataset: &Dataset,
+    params: &[f64],
+) -> f64 {
+    let mut unit = params.to_vec();
+    unit[0] = 0.0;
+    unit[1] = 1.0;
+    let directions = dataset.directions.as_deref();
+    let mut lowest = f64::INFINITY;
+    let mut highest = f64::NEG_INFINITY;
+    for (i, &distance) in dataset.distances.iter().enumerate() {
+        if distance <= 0.0 || !distance.is_finite() {
+            continue;
+        }
+        let direction = directions.map(|dirs| dirs[i]);
+        match predict_value(model, anisotropic, &unit, distance, direction) {
+            Ok(value) if value.is_finite() => {
+                lowest = lowest.min(value);
+                highest = highest.max(value);
+            }
+            _ => return 0.0,
+        }
+    }
+    if lowest.is_finite() {
+        highest - lowest
+    } else {
+        f64::NAN
+    }
 }
 
 fn compute_parameter_std(
