@@ -192,19 +192,42 @@ class InitializationEnsemble:
     def run(self) -> EnsembleResult:
         range_init = self.range_initializer.estimate()
 
-        angles = np.array(sorted(self.directional_results.keys()), dtype=float)
-        ranges = _collect_directional_ranges(self.directional_results)
-        if ranges.size < 2:
-            ranges = np.asarray(
-                [range_init.range_major, range_init.range_minor], dtype=float
-            )
-            angles = np.asarray([0.0, 90.0], dtype=float)
+        # Each range stays with its own angle. The angles came from the sorted keys
+        # and the ranges from the values in insertion order, less any direction
+        # without a range, so the two fell out of step: exact variograms of an axis
+        # at 60 degrees, listed in reverse, gave the ellipse fit an axis at 105, and
+        # a direction without a range left the arrays different lengths.
+        pairs = []
+        for angle, result in self.directional_results.items():
+            directional_range = _extract_range(result)
+            if np.isfinite(directional_range):
+                pairs.append((float(angle), float(directional_range)))
+        pairs.sort()
+        angles = np.array([angle for angle, _ in pairs], dtype=float)
+        ranges = np.array([value for _, value in pairs], dtype=float)
 
-        weights = np.ones_like(ranges)
-        angle_result = estimate_rotation_angle(angles, ranges, weights)
         geom = SpatialGeometryAnalyzer(
             self.coordinates, self.directional_results
         ).analyze()
+        if len(pairs) >= 3:
+            angle_result = estimate_rotation_angle(angles, ranges, np.ones_like(ranges))
+        else:
+            # An ellipse needs three directional ranges. With two the fit raised, and
+            # the fallback for fewer than two placed the major and minor ranges at 0
+            # and 90 degrees, which is still two, so it raised as well. The geometry
+            # angle stands in, with low confidence.
+            fallback_angle = geom.primary_angle_deg
+            angle_result = AngleEstimationResult(
+                angle_deg=fallback_angle,
+                angle_confidence=(
+                    (fallback_angle - 10.0) % 180.0,
+                    (fallback_angle + 10.0) % 180.0,
+                ),
+                ratio=range_init.ratio,
+                confidence="low",
+                significant=False,
+                diagnostics={"fallback": 1.0},
+            )
 
         method_angles = [
             (angle_result.angle_deg, _confidence_weight(angle_result.confidence)),
@@ -228,16 +251,16 @@ class InitializationEnsemble:
         # comes out as 0, and the arithmetic blend of 178 and 0 is 107.
         ensemble_angle = axial_mean([(combined_angle, 0.6), (voted_angle, 0.4)])
 
-        grid_angles = np.arange(0.0, 180.0, 15.0)
         grid_records: List[Tuple[float, float]] = []
-        angles_rad = np.deg2rad(angles % 180.0)
-        for angle_deg in grid_angles:
-            fit = _fit_ellipse_for_phi(
-                np.deg2rad(angle_deg), angles_rad, ranges, np.ones_like(ranges)
-            )
-            if fit is None:
-                continue
-            grid_records.append((float(angle_deg), float(fit["sse"])))
+        if len(pairs) >= 3:
+            angles_rad = np.deg2rad(angles % 180.0)
+            for angle_deg in np.arange(0.0, 180.0, 15.0):
+                fit = _fit_ellipse_for_phi(
+                    np.deg2rad(angle_deg), angles_rad, ranges, np.ones_like(ranges)
+                )
+                if fit is None:
+                    continue
+                grid_records.append((float(angle_deg), float(fit["sse"])))
         grid_records.sort(key=lambda item: item[1])
         top_candidates = (
             grid_records[:3] if grid_records else [(float(ensemble_angle), 0.0)]
@@ -404,15 +427,6 @@ def _quality_from_strength(label: str) -> float:
     return {"strong": 1.0, "moderate": 0.8, "weak": 0.6, "isotropic": 0.3}.get(
         label.lower(), 0.5
     )
-
-
-def _collect_directional_ranges(results: Dict[float, DirectionalResult]) -> np.ndarray:
-    ranges = []
-    for res in results.values():
-        rng = _extract_range(res)
-        if np.isfinite(rng):
-            ranges.append(float(rng))
-    return np.asarray(ranges, dtype=float)
 
 
 def _fit_ellipse_for_phi(
