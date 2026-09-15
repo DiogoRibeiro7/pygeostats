@@ -107,8 +107,8 @@ pytest tests/ -v --cov=pygeostats --cov-report=term-missing
   generated from the docstrings by mkdocstrings.
 - Docstrings use the NumPy style. All public APIs need one, with **usage notes**
   and **parameter constraints**.
-- Every `python` code block under `docs/` runs in `tests/test_docs_examples.py`, one
-  namespace per page. Keep examples short and fast. Fence Python that should not
+- Every `python` code block under `docs/` and in `README.md` runs in
+  `tests/test_docs_examples.py`, one namespace per page. Keep examples short and fast. Fence Python that should not
   run, such as an example needing an optional dependency, as `py`: it is
   highlighted the same way but skipped.
 
