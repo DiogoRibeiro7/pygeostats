@@ -26,26 +26,14 @@ accept. It is also the only route to the neighbour-based kriging in the Rust cor
 batches, and how to krige from local neighbourhoods by hand.
 `benchmarks/kriging_parallel.py` fails for the same reason.
 
-## `ParallelKrigingExecutor` returns wrong or missing predictions
+## Parallel prediction is not faster
 
-`ParallelKrigingExecutor.predict_parallel()` is not safe to rely on:
-
-- With `execution_method="thread"` and the `"chunk"` strategy, chunks are joined in
-  the order they finish rather than the order of the targets. When there is more
-  than one chunk, predictions can land at the wrong locations, with no error or
-  warning. The `"adaptive"` strategy uses chunks for up to 10,000 targets, so it has
-  the same problem.
-- `execution_method="process"` fails for every fitted model, because the variogram
-  holds a fitting result that cannot be pickled. The chunk strategies raise
-  `RuntimeError`, and the spatial strategy returns NaN with a warning.
-- The `"spatial"` strategy returns NaN, with a warning, for targets whose bounding
-  box has zero area, such as targets along a line parallel to an axis.
-- `progress_callback` is not called when tqdm is installed, and progress messages
-  are printed to standard output regardless.
-
-`execution_method="sequential"` gives correct predictions, but no speed-up. Until
-these are fixed, predict large grids in batches with `predict()`, as shown in
-[Large datasets](guide/large-data.md#kriging-many-locations).
+`ParallelKrigingExecutor` returns the same predictions as `predict()`, but not
+sooner. Kriging prediction in the Rust core holds Python's global interpreter lock,
+so thread workers run one at a time, and every chunk factorises the kriging system
+again. In one measurement with 1,000 samples and 16,000 targets, `predict()` took
+4.0 s, eight threads 4.9 s and four processes 4.5 s. See
+[Large datasets](guide/large-data.md#parallel-workers).
 
 ## `AnisotropicKriging` measures its angle clockwise
 

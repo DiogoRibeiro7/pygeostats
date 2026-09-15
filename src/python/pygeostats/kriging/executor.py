@@ -6,7 +6,12 @@ from __future__ import annotations
 import multiprocessing as mp
 import warnings
 from collections.abc import Iterator
-from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_completed
+from concurrent.futures import (
+    Future,
+    ProcessPoolExecutor,
+    ThreadPoolExecutor,
+    as_completed,
+)
 from functools import partial
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
@@ -30,37 +35,39 @@ def spatial_tiles(
     bounds : tuple
         Spatial bounds (xmin, ymin, xmax, ymax).
     tile_size : float or tuple
-        Size of each tile. If float, assumes square tiles.
+        Size of each tile. If float, assumes square tiles. Must be positive.
     overlap : float, default=0.1
         Overlap fraction between adjacent tiles.
 
     Returns
     -------
     tiles : list of tuples
-        List of tile bounds (xmin, ymin, xmax, ymax).
+        List of tile bounds (xmin, ymin, xmax, ymax). Bounds with no width or
+        height still give one row or column of tiles.
+
+    Raises
+    ------
+    ValueError
+        If a tile size is not positive.
     """
     xmin, ymin, xmax, ymax = bounds
 
     if isinstance(tile_size, (int, float)):
-        tile_width = tile_height = tile_size
+        tile_width = tile_height = float(tile_size)
     else:
-        tile_width, tile_height = tile_size
+        tile_width, tile_height = (float(size) for size in tile_size)
+    # A size that is not positive never advances past the first tile, and the
+    # list of tiles grew until memory ran out.
+    if tile_width <= 0 or tile_height <= 0:
+        raise ValueError(f"tile_size must be positive, got {tile_size}")
 
     # Calculate overlap in absolute units
     overlap_width = tile_width * overlap
     overlap_height = tile_height * overlap
 
-    # Generate tiles with overlap
     tiles = []
-
-    x_start = xmin
-    while x_start < xmax:
-        x_end = min(x_start + tile_width, xmax)
-
-        y_start = ymin
-        while y_start < ymax:
-            y_end = min(y_start + tile_height, ymax)
-
+    for x_start, x_end in _tile_edges(xmin, xmax, tile_width):
+        for y_start, y_end in _tile_edges(ymin, ymax, tile_height):
             # Extend bounds by overlap (but don't exceed domain bounds)
             tile_xmin = max(x_start - overlap_width, xmin)
             tile_ymin = max(y_start - overlap_height, ymin)
@@ -69,11 +76,27 @@ def spatial_tiles(
 
             tiles.append((tile_xmin, tile_ymin, tile_xmax, tile_ymax))
 
-            y_start = y_end
-
-        x_start = x_end
-
     return tiles
+
+
+def _tile_edges(low: float, high: float, size: float) -> List[Tuple[float, float]]:
+    """Split ``[low, high]`` into consecutive intervals no longer than ``size``.
+
+    An extent with no width still gets one interval; it used to get none, so
+    bounds with no width produced no tiles.
+    """
+    edges = []
+    start = low
+    while True:
+        end = min(start + size, high)
+        if end <= start:
+            # Either the extent has no width, or size is too small to move start
+            # at this magnitude; finish rather than loop.
+            end = high
+        edges.append((start, end))
+        if end >= high:
+            return edges
+        start = end
 
 
 def chunk_indices(n_items: int, chunk_size: int) -> Iterator[Tuple[int, int]]:
@@ -95,6 +118,39 @@ def chunk_indices(n_items: int, chunk_size: int) -> Iterator[Tuple[int, int]]:
     for start in range(0, n_items, chunk_size):
         end = min(start + chunk_size, n_items)
         yield start, end
+
+
+def _tile_size_for(coordinates: np.ndarray, points_per_tile: int) -> float:
+    """Side of square tiles holding about ``points_per_tile`` targets each.
+
+    Targets are taken as evenly spread over their bounding box. When the box has
+    no area, because the targets lie along a line parallel to an axis or at a
+    single location, the spread is measured along whatever extent remains.
+    """
+    extent = coordinates.max(axis=0) - coordinates.min(axis=0)
+    fraction = min(1.0, points_per_tile / len(coordinates))
+    spanned = extent[extent > 0]
+    if spanned.size == 2:
+        return float(np.sqrt(np.prod(spanned) * fraction))
+    if spanned.size == 1:
+        return float(spanned[0] * fraction)
+    return 1.0
+
+
+def _group_into_tiles(coordinates: np.ndarray, tile_size: float) -> List[np.ndarray]:
+    """Group target indices by square tile, putting each target in exactly one.
+
+    Targets used to be matched against tile bounds instead. Bounds with no width
+    produced no tiles, so targets along a line parallel to an axis were never
+    predicted and came back as NaN.
+    """
+    offsets = coordinates - coordinates.min(axis=0)
+    cells = np.floor(offsets / tile_size).astype(np.int64)
+    n_rows = int(cells[:, 1].max()) + 1
+    keys = cells[:, 0] * n_rows + cells[:, 1]
+    order = np.argsort(keys, kind="stable")
+    boundaries = np.flatnonzero(np.diff(keys[order])) + 1
+    return np.split(order, boundaries)
 
 
 class ParallelKrigingExecutor:
@@ -169,6 +225,19 @@ class ParallelKrigingExecutor:
             Predicted values.
         variances : ndarray, shape (n_pred,), optional
             Prediction variances if return_variance=True.
+
+        Raises
+        ------
+        Exception
+            Whatever ``kriging_model.predict`` raises for any part of the targets.
+            No partial result is returned.
+
+        Notes
+        -----
+        With ``execution_method="process"``, the model is pickled and sent to
+        worker processes. Where processes are spawned rather than forked, as on
+        Windows and macOS, call this from code guarded by
+        ``if __name__ == "__main__":``.
         """
         prediction_coordinates = validate_coordinates(prediction_coordinates)
         n_pred = len(prediction_coordinates)
@@ -197,52 +266,18 @@ class ParallelKrigingExecutor:
     ) -> Union[np.ndarray, Tuple[np.ndarray, np.ndarray]]:
         """Parallel prediction using simple chunking."""
         n_pred = len(prediction_coordinates)
-
-        # Create chunks
         chunks = list(chunk_indices(n_pred, self.chunk_size))
-        n_chunks = len(chunks)
 
-        print(f"Processing {n_chunks} chunks of size ~{self.chunk_size}")
+        print(f"Processing {len(chunks)} chunks of size ~{self.chunk_size}")
 
-        # Prepare worker function
         worker_func = partial(
             _predict_chunk_worker,
             kriging_model=kriging_model,
             return_variance=return_variance,
         )
-
-        # Execute in parallel
-        if self.execution_method == "sequential":
-            results = []
-            for i, (start, end) in enumerate(chunks):
-                chunk_coords = prediction_coordinates[start:end]
-                result = worker_func(chunk_coords)
-                results.append(result)
-
-                if self.progress_callback:
-                    self.progress_callback(i + 1, n_chunks)
-
-        elif self.execution_method == "thread":
-            with ThreadPoolExecutor(max_workers=self.n_workers) as executor:
-                futures = []
-                for start, end in chunks:
-                    chunk_coords = prediction_coordinates[start:end]
-                    future = executor.submit(worker_func, chunk_coords)
-                    futures.append(future)
-
-                results = self._collect_results_with_progress(futures, n_chunks)
-
-        elif self.execution_method == "process":
-            with ProcessPoolExecutor(max_workers=self.n_workers) as executor:
-                futures = []
-                for start, end in chunks:
-                    chunk_coords = prediction_coordinates[start:end]
-                    future = executor.submit(worker_func, chunk_coords)
-                    futures.append(future)
-
-                results = self._collect_results_with_progress(futures, n_chunks)
-
-        # Combine results
+        results = self._run_tasks(
+            worker_func, [prediction_coordinates[start:end] for start, end in chunks]
+        )
         return self._combine_chunk_results(results, return_variance)
 
     def _predict_spatial(
@@ -258,78 +293,22 @@ class ParallelKrigingExecutor:
                 kriging_model, prediction_coordinates, return_variance
             )
 
-        # Calculate spatial bounds and tile size
-        bounds = (
-            prediction_coordinates[:, 0].min(),
-            prediction_coordinates[:, 1].min(),
-            prediction_coordinates[:, 0].max(),
-            prediction_coordinates[:, 1].max(),
-        )
-
-        # Estimate tile size based on number of workers and points
         n_pred = len(prediction_coordinates)
         target_points_per_tile = max(self.chunk_size, n_pred // (self.n_workers * 2))
-
-        # Estimate tile size assuming uniform distribution
-        domain_area = (bounds[2] - bounds[0]) * (bounds[3] - bounds[1])
-        density = n_pred / domain_area if domain_area > 0 else 1
-        tile_area = target_points_per_tile / density
-        tile_size = np.sqrt(tile_area)
-
-        # Generate tiles
-        tiles = spatial_tiles(bounds, tile_size, overlap=0.1)
+        tile_size = _tile_size_for(prediction_coordinates, target_points_per_tile)
+        tiles = _group_into_tiles(prediction_coordinates, tile_size)
 
         print(f"Processing {len(tiles)} spatial tiles")
 
-        # Assign points to tiles
-        tile_assignments = self._assign_points_to_tiles(prediction_coordinates, tiles)
-
-        # Prepare worker function
         worker_func = partial(
-            _predict_spatial_tile_worker,
+            _predict_chunk_worker,
             kriging_model=kriging_model,
             return_variance=return_variance,
         )
-
-        # Execute in parallel
-        if self.execution_method == "sequential":
-            results = []
-            for i, (tile_coords, tile_indices) in enumerate(tile_assignments):
-                if len(tile_coords) > 0:
-                    result = worker_func((tile_coords, tile_indices))
-                    results.append(result)
-
-                if self.progress_callback:
-                    self.progress_callback(i + 1, len(tile_assignments))
-
-        elif self.execution_method == "thread":
-            with ThreadPoolExecutor(max_workers=self.n_workers) as executor:
-                futures = []
-                for tile_coords, tile_indices in tile_assignments:
-                    if len(tile_coords) > 0:
-                        future = executor.submit(
-                            worker_func, (tile_coords, tile_indices)
-                        )
-                        futures.append(future)
-
-                results = self._collect_results_with_progress(futures, len(futures))
-
-        elif self.execution_method == "process":
-            with ProcessPoolExecutor(max_workers=self.n_workers) as executor:
-                futures = []
-                for tile_coords, tile_indices in tile_assignments:
-                    if len(tile_coords) > 0:
-                        future = executor.submit(
-                            worker_func, (tile_coords, tile_indices)
-                        )
-                        futures.append(future)
-
-                results = self._collect_results_with_progress(futures, len(futures))
-
-        # Combine spatial results
-        return self._combine_spatial_results(
-            results, len(prediction_coordinates), return_variance
+        results = self._run_tasks(
+            worker_func, [prediction_coordinates[indices] for indices in tiles]
         )
+        return self._combine_spatial_results(results, tiles, n_pred, return_variance)
 
     def _predict_adaptive(
         self, kriging_model, prediction_coordinates: np.ndarray, return_variance: bool
@@ -352,34 +331,39 @@ class ParallelKrigingExecutor:
                 kriging_model, prediction_coordinates, return_variance
             )
 
-    def _assign_points_to_tiles(
-        self, coordinates: np.ndarray, tiles: List[Tuple[float, float, float, float]]
-    ) -> List[Tuple[np.ndarray, np.ndarray]]:
-        """Assign prediction points to spatial tiles."""
-        assignments = []
+    def _run_tasks(self, worker_func: Callable, tasks: List[Any]) -> List[Any]:
+        """Run ``worker_func`` on every task and return the results in task order.
 
-        for tile_bounds in tiles:
-            xmin, ymin, xmax, ymax = tile_bounds
+        An exception raised by a task is raised here, rather than turned into NaN
+        or dropped, so a result is never returned with parts missing.
+        """
+        if self.execution_method == "sequential":
+            results = []
+            for completed, task in enumerate(tasks, start=1):
+                results.append(worker_func(task))
+                if self.progress_callback:
+                    self.progress_callback(completed, len(tasks))
+            return results
 
-            # Find points within tile
-            mask = (
-                (coordinates[:, 0] >= xmin)
-                & (coordinates[:, 0] <= xmax)
-                & (coordinates[:, 1] >= ymin)
-                & (coordinates[:, 1] <= ymax)
-            )
+        pool_class = (
+            ThreadPoolExecutor
+            if self.execution_method == "thread"
+            else ProcessPoolExecutor
+        )
+        with pool_class(max_workers=self.n_workers) as pool:
+            futures = [pool.submit(worker_func, task) for task in tasks]
+            return self._collect_results_with_progress(futures)
 
-            tile_indices = np.where(mask)[0]
-            tile_coords = coordinates[mask]
+    def _collect_results_with_progress(self, futures: List[Future]) -> List[Any]:
+        """Collect results in submission order, reporting progress as tasks finish.
 
-            assignments.append((tile_coords, tile_indices))
-
-        return assignments
-
-    def _collect_results_with_progress(self, futures, total_tasks: int):
-        """Collect results from futures with progress tracking."""
-        results = []
-        completed = 0
+        Results used to be appended in the order tasks finished, so chunks that
+        finished early were joined first and their predictions landed at other
+        targets' positions.
+        """
+        results: List[Any] = [None] * len(futures)
+        positions = {future: index for index, future in enumerate(futures)}
+        total_tasks = len(futures)
 
         try:
             from tqdm import tqdm
@@ -388,83 +372,61 @@ class ParallelKrigingExecutor:
         except ImportError:
             progress_bar = None
 
-        for future in as_completed(futures):
-            try:
-                result = future.result()
-                results.append(result)
-                completed += 1
+        try:
+            for completed, future in enumerate(as_completed(futures), start=1):
+                try:
+                    results[positions[future]] = future.result()
+                except BaseException:
+                    for pending in futures:
+                        pending.cancel()
+                    raise
 
-                if progress_bar:
+                if progress_bar is not None:
                     progress_bar.update(1)
-                elif self.progress_callback:
+                # The callback used to be skipped whenever tqdm was installed.
+                if self.progress_callback:
                     self.progress_callback(completed, total_tasks)
-                elif completed % max(1, total_tasks // 10) == 0:
+                elif (
+                    progress_bar is None and completed % max(1, total_tasks // 10) == 0
+                ):
                     print(f"Completed {completed}/{total_tasks} tasks")
-
-            except Exception as e:
-                warnings.warn(f"Task failed: {e!s}", stacklevel=2)
-                results.append(None)
-
-        if progress_bar:
-            progress_bar.close()
+        finally:
+            if progress_bar is not None:
+                progress_bar.close()
 
         return results
 
     def _combine_chunk_results(
         self, results: List, return_variance: bool
     ) -> Union[np.ndarray, Tuple[np.ndarray, np.ndarray]]:
-        """Combine results from chunked processing."""
-        # Filter out failed results
-        valid_results = [r for r in results if r is not None]
-
-        if not valid_results:
-            raise RuntimeError("All prediction tasks failed")
-
+        """Join per-chunk results, which are in chunk order."""
         if return_variance:
-            predictions_list = [r[0] for r in valid_results]
-            variances_list = [r[1] for r in valid_results]
-
-            predictions = np.concatenate(predictions_list)
-            variances = np.concatenate(variances_list)
-
+            predictions = np.concatenate([result[0] for result in results])
+            variances = np.concatenate([result[1] for result in results])
             return predictions, variances
-        else:
-            predictions = np.concatenate(valid_results)
-            return predictions
+        return np.concatenate(results)
 
     def _combine_spatial_results(
-        self, results: List, n_total: int, return_variance: bool
+        self,
+        results: List,
+        tiles: List[np.ndarray],
+        n_total: int,
+        return_variance: bool,
     ) -> Union[np.ndarray, Tuple[np.ndarray, np.ndarray]]:
-        """Combine results from spatial tiling."""
-        # Initialize output arrays
-        predictions = np.full(n_total, np.nan)
-        variances = np.full(n_total, np.nan) if return_variance else None
+        """Put each tile's results back at the positions of its targets."""
+        predictions = np.empty(n_total)
+        variances = np.empty(n_total)
 
-        # Assign results to correct positions
-        for result in results:
-            if result is None:
-                continue
-
+        for indices, result in zip(tiles, results, strict=True):
             if return_variance:
-                tile_predictions, tile_variances, tile_indices = result
-                predictions[tile_indices] = tile_predictions
-                variances[tile_indices] = tile_variances
+                predictions[indices] = result[0]
+                variances[indices] = result[1]
             else:
-                tile_predictions, tile_indices = result
-                predictions[tile_indices] = tile_predictions
-
-        # Check for missing predictions
-        missing_mask = np.isnan(predictions)
-        if np.any(missing_mask):
-            warnings.warn(
-                f"{np.sum(missing_mask)} predictions failed and are set to NaN",
-                stacklevel=2,
-            )
+                predictions[indices] = result
 
         if return_variance:
             return predictions, variances
-        else:
-            return predictions
+        return predictions
 
     def estimate_computation_time(
         self, n_predictions: int, sample_size: int = 100, kriging_model=None
@@ -524,53 +486,14 @@ class ParallelKrigingExecutor:
 def _predict_chunk_worker(
     chunk_coordinates: np.ndarray, kriging_model, return_variance: bool
 ) -> Union[np.ndarray, Tuple[np.ndarray, np.ndarray]]:
-    """Worker function for chunk-based parallel prediction."""
-    try:
-        if return_variance:
-            predictions, variances = kriging_model.predict(
-                chunk_coordinates, return_variance=True
-            )
-            return predictions, variances
-        else:
-            predictions = kriging_model.predict(chunk_coordinates)
-            return predictions
-    except Exception:
-        # Return NaN array on failure
-        n_pred = len(chunk_coordinates)
-        if return_variance:
-            return (np.full(n_pred, np.nan), np.full(n_pred, np.nan))
-        else:
-            return np.full(n_pred, np.nan)
+    """Predict one chunk or tile of targets.
 
-
-def _predict_spatial_tile_worker(
-    tile_data: Tuple[np.ndarray, np.ndarray], kriging_model, return_variance: bool
-) -> Union[Tuple[np.ndarray, np.ndarray], Tuple[np.ndarray, np.ndarray, np.ndarray]]:
-    """Worker function for spatial tile-based parallel prediction."""
-    tile_coords, tile_indices = tile_data
-
-    if len(tile_coords) == 0:
-        if return_variance:
-            return np.array([]), np.array([]), np.array([])
-        else:
-            return np.array([]), np.array([])
-
-    try:
-        if return_variance:
-            predictions, variances = kriging_model.predict(
-                tile_coords, return_variance=True
-            )
-            return predictions, variances, tile_indices
-        else:
-            predictions = kriging_model.predict(tile_coords)
-            return predictions, tile_indices
-    except Exception:
-        # Return NaN arrays on failure
-        n_pred = len(tile_coords)
-        if return_variance:
-            return (np.full(n_pred, np.nan), np.full(n_pred, np.nan), tile_indices)
-        else:
-            return np.full(n_pred, np.nan), tile_indices
+    Exceptions propagate. They used to be caught and replaced with NaN, so a
+    failing model returned NaN predictions without an error or a warning.
+    """
+    if return_variance:
+        return kriging_model.predict(chunk_coordinates, return_variance=True)
+    return kriging_model.predict(chunk_coordinates)
 
 
 class ProgressiveKrigingComputation:

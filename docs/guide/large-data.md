@@ -4,11 +4,11 @@ Two costs grow quickly with the number of samples. An empirical variogram visits
 every pair of samples, and ordinary kriging uses every sample for every prediction.
 This page covers what pygeostats offers for each, and what that does not solve.
 
-!!! warning "Parallel kriging is unreliable in 0.1.0a1"
+!!! note "Parallel prediction is not faster yet"
 
-    `OrdinaryKriging.predict_parallel()` fails, and `ParallelKrigingExecutor` can
-    return predictions in the wrong order or as NaN. Neither is used on this page.
-    See [Known limitations](../known-limitations.md#parallelkrigingexecutor-returns-wrong-or-missing-predictions).
+    `OrdinaryKriging.predict_parallel()` fails. `ParallelKrigingExecutor` returns the
+    same predictions as `predict()`, but no sooner; see
+    [Parallel workers](#parallel-workers).
 
 The examples use 1,000 samples:
 
@@ -160,10 +160,12 @@ from_npy = streaming_variogram(
 
 ## Kriging many locations
 
-`OrdinaryKriging.predict` uses every sample for every target, and its cost grows
-roughly with the square of the number of samples, times the number of targets.
-Predicting a large grid in batches keeps the memory of each call bounded, but takes
-as long overall:
+Each call to `OrdinaryKriging.predict` sets up and factorises the kriging system for
+all the samples, work that grows with the cube of their number, and then solves it
+once for every target. With many samples, the set-up dominates, and predicting in
+batches repeats it for every batch: in one measurement with 1,000 samples, 400
+targets took 0.18 s in one call and 2 s in 20 batches. Use as few batches as memory
+allows:
 
 ```python
 from pygeostats.kriging import OrdinaryKriging
@@ -177,6 +179,33 @@ batched = np.concatenate(
     [kriging.predict(targets[start : start + 100]) for start in range(0, len(targets), 100)]
 )
 ```
+
+### Parallel workers
+
+`ParallelKrigingExecutor` splits the targets into chunks, or into spatial tiles with
+`strategy="spatial"`, predicts them in threads or processes, and puts the results
+back in the order of the targets:
+
+```python
+from pygeostats.kriging import ParallelKrigingExecutor
+
+executor = ParallelKrigingExecutor(n_workers=4, execution_method="thread", chunk_size=200)
+parallel = executor.predict_parallel(kriging, targets)
+```
+
+It is not faster than one `predict()` call yet, for two reasons:
+
+- **Threads run one at a time.** Prediction in the Rust core holds Python's global
+  interpreter lock.
+- **Every chunk sets up the kriging system again**, as batches do. Process workers
+  avoid the lock, but also pay to start and to receive a pickled copy of the model.
+
+In one measurement with 1,000 samples and 16,000 targets, `predict()` took 4.0 s,
+eight threads 4.9 s and four processes 4.5 s.
+
+With `execution_method="process"` on Windows or macOS, call it from code guarded by
+`if __name__ == "__main__":`. `progress_callback(completed, total)` is called as
+chunks finish, and the executor also prints progress messages.
 
 ### Local neighbourhoods
 
