@@ -1,0 +1,3 @@
+# pygeostats.kriging
+
+::: pygeostats.kriging
