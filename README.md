@@ -1,48 +1,47 @@
 # pygeostats
 
+**Geostatistics for Python with a Rust-accelerated core.** Variograms, kriging,
+point-pattern analysis and spatial autocorrelation, behind a familiar `fit` /
+`predict` API that accepts NumPy arrays, pandas DataFrames and GeoPandas
+GeoDataFrames.
+
+[![PyPI](https://img.shields.io/pypi/v/pygeostats)](https://pypi.org/project/pygeostats/)
+[![Python versions](https://img.shields.io/pypi/pyversions/pygeostats)](https://pypi.org/project/pygeostats/)
+[![Development status](https://img.shields.io/pypi/status/pygeostats)](https://pypi.org/project/pygeostats/)
+[![License: MIT](https://img.shields.io/pypi/l/pygeostats)](https://github.com/DiogoRibeiro7/pygeostats/blob/main/LICENSE)
 [![CI](https://github.com/DiogoRibeiro7/pygeostats/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/DiogoRibeiro7/pygeostats/actions/workflows/ci.yml)
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Docs](https://github.com/DiogoRibeiro7/pygeostats/actions/workflows/docs.yml/badge.svg?branch=main)](https://diogoribeiro7.github.io/pygeostats/)
+[![Rust core: PyO3](https://img.shields.io/badge/core-Rust%20%2B%20PyO3-dea584?logo=rust)](https://pyo3.rs)
+[![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
+[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 
-Geostatistics for Python with a Rust-accelerated core: variograms, kriging,
-point-pattern analysis and spatial autocorrelation.
+**[Documentation](https://diogoribeiro7.github.io/pygeostats/)** ·
+[Quickstart](https://diogoribeiro7.github.io/pygeostats/getting-started/quickstart/) ·
+[API reference](https://diogoribeiro7.github.io/pygeostats/reference/variogram/) ·
+[Known limitations](https://diogoribeiro7.github.io/pygeostats/known-limitations/) ·
+[Changelog](https://github.com/DiogoRibeiro7/pygeostats/blob/main/CHANGELOG.md) ·
+[Issues](https://github.com/DiogoRibeiro7/pygeostats/issues)
 
-**Documentation:** <https://diogoribeiro7.github.io/pygeostats/>
+> **Alpha release.** `0.1.0a1` is on PyPI as a pre-release. The API may still
+> change, and some features are unfinished or unreliable: read the
+> [known limitations](https://diogoribeiro7.github.io/pygeostats/known-limitations/)
+> before relying on anisotropy analysis or parallel kriging.
 
-## Status
+## Highlights
 
-**Alpha. `0.1.0a1` is published to PyPI as a pre-release, and the package is not
-ready for production use.**
-
-The package builds and imports, and the test suite runs green. Wheels are
-published for Linux and macOS on x86_64 and arm64, and for Windows on x86_64.
-Known defects and unfinished features are listed under
-[Known limitations](#known-limitations); read that section before relying on
-directional or anisotropy analysis.
-
-This project was previously called `pyspatialstats`, and was renamed because
-that name belongs to [an existing, actively maintained package](https://github.com/jasperroebroek/pyspatialstats)
-on PyPI by Jasper Roebroek. The two are unrelated.
-
-## Features
-
-* **Variograms** — empirical estimation, theoretical models (exponential,
-  spherical and Gaussian), directional variograms and anisotropy detection
-* **Kriging** — ordinary, simple and universal, with prediction variance
-* **Large data** — variograms computed in streaming chunks, from memory-mapped
-  input if needed, with sparse bin summaries; neighbour search for local
-  kriging neighbourhoods
-* **Point patterns** — nearest-neighbour distances, Ripley's K and L, G and F
-  functions, pair correlation, DBSCAN, kernel density, Poisson and Cox process
-  simulation, spatial segregation indices
-* **Spatial autocorrelation** — Moran's I and Geary's C (global and local),
-  Getis-Ord G and Gi*, and weight-matrix builders (kNN, distance band, inverse
-  distance)
-* **Validation** — leave-one-out and spatial k-fold cross-validation, AIC/BIC
-  model selection, residual diagnostics
-* **Rust core** — the distance, variogram and kriging kernels are compiled
-  extensions built with PyO3 and maturin
-* **Familiar API** — estimators expose `.fit()`, `.predict()` and `.score()`,
-  and coordinate arguments accept NumPy arrays or GeoPandas GeoDataFrames
+- **A compiled core.** Distances, empirical variograms, model fitting and kriging
+  run in Rust, built with PyO3 and maturin.
+- **The full workflow.** Estimate a variogram, fit a model, krige with prediction
+  variance, and cross-validate the result, all in one package.
+- **Honest fits.** When the data does not constrain a variogram model, `fit()` says
+  so through `converged_` and `warnings_`, instead of returning a range as though
+  it were reliable.
+- **Beyond kriging.** Point-pattern statistics, spatial clustering and spatial
+  autocorrelation share the same inputs.
+- **Wheels for every major platform.** One stable-ABI wheel per platform covers
+  Python 3.11 to 3.14, with no Rust toolchain needed to install.
+- **Tested documentation.** Every example in the documentation and in this README
+  runs as part of the test suite.
 
 ## Installation
 
@@ -50,128 +49,175 @@ on PyPI by Jasper Roebroek. The two are unrelated.
 pip install pygeostats
 ```
 
-Requires Python 3.11 or newer. Wheels are built against the stable ABI
-(`cp311-abi3`), so one wheel per platform covers every supported Python version.
-On platforms without a wheel, pip builds from the source distribution, which
-needs a Rust toolchain.
+pygeostats needs Python 3.11 or newer. While no stable release exists, pip installs
+the pre-release; after one does, use `pip install --pre pygeostats` to get
+pre-releases.
 
-`0.1.0a1` is a pre-release. pip installs it while no stable release exists; once
-one does, `pip install --pre pygeostats` is needed to get pre-releases.
+Optional extras:
 
-To build from source, a Rust toolchain is required, since the core extension is
-compiled:
+| Extra | Adds | For |
+|-------|------|-----|
+| `plotting` | plotly | interactive plots, with `backend="plotly"` |
+| `progress` | tqdm | progress bars in the parallel executor |
+| `approx` | annoy | approximate neighbour search |
+
+```bash
+pip install "pygeostats[plotting]"
+```
+
+Wheels are published for:
+
+| Platform | Architectures |
+|----------|---------------|
+| Linux (manylinux2014) | x86_64, aarch64 |
+| macOS | x86_64 (10.12+), arm64 (11+) |
+| Windows | x86_64 |
+
+Elsewhere, pip builds from the source distribution, which needs a
+[Rust toolchain](https://rustup.rs).
+
+## Quick start
+
+Estimate a variogram from scattered samples, fit a model, and krige onto a grid:
+
+```python
+import numpy as np
+from pygeostats.kriging import OrdinaryKriging
+from pygeostats.variogram import EmpiricalVariogram, Variogram
+
+rng = np.random.default_rng(0)
+coords = rng.uniform(0, 10, size=(100, 2))
+values = np.sin(coords[:, 0]) + np.cos(coords[:, 1]) + rng.normal(0, 0.1, 100)
+
+# 1. Empirical variogram: semivariance by distance bin
+empirical = EmpiricalVariogram(coords, values, n_bins=12).compute()
+
+# 2. Fit a model, and check that the fit can be trusted
+model = Variogram(model="exponential")
+model.fit(empirical.distances_, empirical.gamma_, weights=empirical.counts_)
+print(model.converged_, model.nugget_, model.sill_, model.range_)
+
+# 3. Krige onto a grid, with the prediction variance
+xs = np.linspace(0, 10, 40)
+grid_x, grid_y = np.meshgrid(xs, xs)
+targets = np.column_stack([grid_x.ravel(), grid_y.ravel()])
+
+kriging = OrdinaryKriging(model).fit(coords, values)
+predictions, variance = kriging.predict(targets, return_variance=True)
+```
+
+Check how well the workflow predicts, holding out whole regions at a time:
+
+```python
+from pygeostats.validation import (
+    default_kriging_builder,
+    default_variogram_builder,
+    spatial_kfold_cross_validation,
+)
+
+cv = spatial_kfold_cross_validation(
+    coords,
+    values,
+    default_variogram_builder("exponential"),
+    default_kriging_builder(),
+    n_splits=5,
+    random_state=0,
+)
+print(cv.summary())  # {"rmse": ..., "r2": ...}
+```
+
+Point patterns and spatial autocorrelation work directly on coordinates and values:
+
+```python
+from pygeostats import (
+    morans_i,
+    ripley_l_function,
+    simulate_poisson_process,
+    spatial_weights_knn,
+)
+
+# Ripley's L for a random pattern: close to r at every radius
+points = simulate_poisson_process(200, bounds=(0.0, 1.0, 0.0, 1.0), random_state=0)
+radii = np.linspace(0.01, 0.15, 15)
+l_values = ripley_l_function(points, radii, area=1.0)
+
+# Moran's I for the samples above, with a permutation test
+weights = spatial_weights_knn(coords, k=8)
+print(morans_i(values, weights, permutations=999, random_state=0))
+```
+
+The [Quickstart](https://diogoribeiro7.github.io/pygeostats/getting-started/quickstart/)
+walks through a complete workflow, including plots, and
+[`examples/basic_kriging.py`](https://github.com/DiogoRibeiro7/pygeostats/blob/main/examples/basic_kriging.py)
+and
+[`examples/variogram_fitting.py`](https://github.com/DiogoRibeiro7/pygeostats/blob/main/examples/variogram_fitting.py)
+are complete scripts.
+
+## Features
+
+| Module | What it covers | Guide |
+|--------|----------------|-------|
+| `pygeostats.variogram` | Empirical and directional variograms; exponential, spherical and Gaussian models with a fit report; anisotropy detection; streaming and memory-mapped variograms | [Variograms](https://diogoribeiro7.github.io/pygeostats/guide/variograms/), [Anisotropy](https://diogoribeiro7.github.io/pygeostats/guide/anisotropy/) |
+| `pygeostats.kriging` | Ordinary, simple, universal and anisotropic kriging, with prediction variance; neighbour search | [Kriging](https://diogoribeiro7.github.io/pygeostats/guide/kriging/), [Large datasets](https://diogoribeiro7.github.io/pygeostats/guide/large-data/) |
+| `pygeostats.point_patterns` | Nearest neighbours; Ripley's K and L; G, F and pair correlation functions; DBSCAN; kernel density; Gi* hot spots; Poisson, Cox and marked process simulation; segregation indices | [Point patterns](https://diogoribeiro7.github.io/pygeostats/guide/point-patterns/) |
+| `pygeostats.spatial_autocorrelation` | Moran's I and Geary's C, global and local; Getis-Ord G and Gi*; k-nearest-neighbour, distance-band and inverse-distance weights | [Spatial autocorrelation](https://diogoribeiro7.github.io/pygeostats/guide/autocorrelation/) |
+| `pygeostats.validation` | Leave-one-out, spatial k-fold and block cross-validation; model selection by AIC, BIC or leave-one-out; residual diagnostics | [Validation](https://diogoribeiro7.github.io/pygeostats/guide/validation/) |
+| `pygeostats.utils` | matplotlib and plotly plots of variograms, kriging surfaces and diagnostics | [Plotting](https://diogoribeiro7.github.io/pygeostats/guide/plotting/) |
+
+## Status and known limitations
+
+pygeostats is alpha software. The variogram, kriging, point-pattern,
+autocorrelation and validation workflows are tested and documented, but:
+
+- **Fitting an anisotropic model from directional variograms is not implemented.**
+  `AnisotropicKriging` works with parameters set by hand, and measures its rotation
+  angle clockwise, unlike `DirectionalVariogram`.
+- **Anisotropy estimates are rough.** The ratio from `detect_anisotropy()` runs low,
+  and on a few hundred samples the estimated axis can be tens of degrees off.
+- **Parallel kriging is unreliable.** `OrdinaryKriging.predict_parallel()` fails,
+  and `ParallelKrigingExecutor` can return predictions in the wrong order. Predict
+  large grids in batches with `predict()` instead.
+- **Matérn models cannot be fitted**, only exponential, spherical and Gaussian ones.
+- **`StreamingVariogramBuilder.add_pairs()` needs `weights`**, although it is
+  documented as optional.
+- **Type annotations are incomplete**, and mypy runs as an advisory CI step.
+
+The [known limitations](https://diogoribeiro7.github.io/pygeostats/known-limitations/)
+page has the details and workarounds.
+
+## Development
+
+A Rust toolchain is needed to build from source. The compiler version is pinned in
+`rust-toolchain.toml`, and rustup fetches it automatically.
 
 ```bash
 git clone https://github.com/DiogoRibeiro7/pygeostats.git
 cd pygeostats
-pip install .
-```
-
-For development, including the test dependencies:
-
-```bash
-pip install -e ".[dev,test]"
-```
-
-## Quick start
-
-```python
-import numpy as np
-from pygeostats.variogram import EmpiricalVariogram, Variogram
-from pygeostats.kriging import OrdinaryKriging
-
-rng = np.random.default_rng(0)
-coords = rng.uniform(0, 10, size=(100, 2))
-values = rng.standard_normal(100)
-
-# Empirical variogram
-ev = EmpiricalVariogram(coords, values)
-ev.compute()
-
-# Fit a theoretical model
-model = Variogram(model="exponential")
-model.fit(ev.distances_, ev.gamma_)
-
-# Interpolate
-kriging = OrdinaryKriging(model)
-kriging.fit(coords, values)
-predictions = kriging.predict(coords)
-```
-
-Point patterns and spatial autocorrelation are used directly:
-
-```python
-from pygeostats import ripley_k_function, morans_i, spatial_weights_knn
-
-radii = np.linspace(0.01, 0.25, 25)
-k = ripley_k_function(coords, radii, area=100.0)
-
-weights = spatial_weights_knn(coords, k=8)
-result = morans_i(values, weights)
-```
-
-## Known limitations
-
-* The workflow from directional variograms to anisotropic kriging is not
-  implemented. `DirectionalVariogram.estimate_initial_parameters()` and
-  `create_anisotropic_variogram_from_directional()` raise
-  `NotImplementedError`, and both are covered by strict `xfail` tests.
-  `InitializationEnsemble` and `RangeInitializer` from
-  `pygeostats.variogram.initialization` provide starting values in the meantime.
-* `detect_anisotropy()` estimates the anisotropy axis, but its ratio runs low:
-  about 1.4 for a 2.9:1 field, against about 1.06 for an isotropic one. Treat it
-  as a detection statistic rather than an estimate of the true ratio. At the
-  default `ratio_threshold` of 1.2, some isotropic fields are flagged as
-  anisotropic.
-* `RangeInitializer` returns starting values for a fit, not estimates of a
-  model's range parameter.
-* `InitializationEnsemble` blends the principal axis of the sampling locations
-  into its angle, which can pull it off the field's axis: in one test it reported
-  74 degrees for an axis at 60.
-* `OrdinaryKriging.predict_parallel()` fails before making any prediction: it
-  calls `ParallelKrigingExecutor`, `ApproximateNeighborIndex` and
-  `spatial_tiles` with arguments they do not accept.
-* `ParallelKrigingExecutor` can return predictions in the wrong order in thread
-  mode, fails for fitted models in process mode, and can return NaN with its
-  spatial strategy. Predict large grids in batches with `predict()` instead.
-* `StreamingVariogramBuilder.add_pairs()` raises `TypeError` unless `weights`
-  is passed, although it is documented as optional.
-
-The point-pattern, spatial-autocorrelation and clustering modules are not
-affected by any of the above and pass their tests.
-
-Variogram fitting reports when it cannot be trusted. If the empirical variogram
-does not constrain the chosen model — typically because it is still rising at
-the largest observed lag — `Variogram.fit` sets `converged_` to `False` and adds
-a warning, rather than returning a range as though it were reliable.
-
-Type annotations are incomplete: mypy reports findings in first-party code and
-runs as an advisory CI step rather than a gate.
-
-## Development
-
-```bash
 pip install -e ".[dev,test]"
 
-pytest tests/                  # 195 passed, 2 xfailed
+pytest tests/
 black --check src/python/ tests/
 ruff check src/python/ tests/
-cargo fmt --all -- --check
-cargo clippy --all-targets -- -D warnings
-
-# note the flags: extension-module tells the linker not to link libpython,
-# which is correct for the cdylib but breaks a plain `cargo test` on Linux
-# and macOS with undefined Python symbols
 cargo test --no-default-features --features parallel
 ```
 
-The Rust toolchain is pinned in `rust-toolchain.toml`, so rustup will fetch the
-matching compiler automatically.
+The [development guide](https://diogoribeiro7.github.io/pygeostats/development/)
+explains the checks and how to build the documentation.
 
-See [CHANGELOG.md](CHANGELOG.md) for release notes,
-[CONTRIBUTING.md](CONTRIBUTING.md) for the full workflow and
-[ROADMAP.md](ROADMAP.md) for planned work.
+## Contributing
+
+Bug reports, questions and pull requests are welcome in the
+[issue tracker](https://github.com/DiogoRibeiro7/pygeostats/issues). See
+[CONTRIBUTING.md](https://github.com/DiogoRibeiro7/pygeostats/blob/main/CONTRIBUTING.md)
+for the workflow, and the
+[Code of Conduct](https://github.com/DiogoRibeiro7/pygeostats/blob/main/CODE_OF_CONDUCT.md).
+
+## Name
+
+This project was previously called `pyspatialstats`. It was renamed because that name
+belongs to [an existing, actively maintained package](https://github.com/jasperroebroek/pyspatialstats)
+on PyPI by Jasper Roebroek. The two are unrelated.
 
 ## License
 
-MIT. See [LICENSE](LICENSE).
+MIT. See [LICENSE](https://github.com/DiogoRibeiro7/pygeostats/blob/main/LICENSE).

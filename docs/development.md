@@ -48,8 +48,8 @@ mkdocs serve   # live preview at http://127.0.0.1:8000
 mkdocs build --strict
 ```
 
-Docstrings use the NumPy style. Every `python` code block in the pages runs as part
-of the test suite, in `tests/test_docs_examples.py`, one namespace per page, so keep
+Docstrings use the NumPy style. Every `python` code block in the pages, and in the
+README, runs as part of the test suite, in `tests/test_docs_examples.py`, one namespace per page, so keep
 examples fast. Fence Python that should not run, such as an example that needs an
 optional dependency, as `py`: it is highlighted the same way but skipped.
 
