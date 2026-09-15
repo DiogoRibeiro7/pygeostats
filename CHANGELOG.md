@@ -4,6 +4,30 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and version numbers
 follow [PEP 440](https://peps.python.org/pep-0440/).
 
+## [Unreleased]
+
+### Added
+
+- A documentation site, built with MkDocs, at
+  <https://diogoribeiro7.github.io/pygeostats/>: user guides, an API reference and
+  known limitations. Its examples, and the README's, run as tests (#21, #22).
+
+### Fixed
+
+- `ParallelKrigingExecutor` returns predictions in the order of the targets. Thread
+  and process results were joined in the order tasks finished, which put chunks of
+  predictions at other targets' positions without an error (#23).
+- Fitted variograms, and kriging models that hold them, can be pickled and
+  deep-copied, so `ParallelKrigingExecutor` works with process workers (#23).
+- The executor's spatial strategy predicts every target. Targets along a line
+  parallel to an axis, or at a single location, came back as NaN (#23).
+- An error raised by the model during `ParallelKrigingExecutor.predict_parallel`
+  is raised, instead of turning that part of the predictions into NaN (#23).
+- `ParallelKrigingExecutor` calls `progress_callback` when tqdm is installed (#23).
+- `spatial_tiles` raises `ValueError` for tile sizes that are not positive, which
+  used to run until memory ran out, and returns tiles for bounds with no width or
+  height (#23).
+
 ## [0.1.0a1] - 2026-09-15
 
 First release, published to PyPI as an alpha pre-release. The project was
@@ -52,4 +76,5 @@ unrelated package on PyPI.
 - The anisotropy ratio from `detect_anisotropy` runs low, and `RangeInitializer`
   returns starting values rather than model ranges. The README has details.
 
+[Unreleased]: https://github.com/DiogoRibeiro7/pygeostats/compare/v0.1.0a1...HEAD
 [0.1.0a1]: https://github.com/DiogoRibeiro7/pygeostats/releases/tag/v0.1.0a1

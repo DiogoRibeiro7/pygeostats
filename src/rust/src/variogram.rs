@@ -457,7 +457,9 @@ impl OptimizationDiagnostics {
     }
 }
 
-#[pyclass]
+// The module path lets pickle find the class again; without it the class reports
+// itself as builtins.FittingResult.
+#[pyclass(module = "pygeostats._core")]
 pub struct FittingResult {
     #[pyo3(get)]
     parameters: Vec<f64>,
@@ -485,8 +487,76 @@ pub struct FittingResult {
     warnings: Vec<String>,
 }
 
+/// `FittingResult`'s fields, in the order its constructor takes them.
+type FittingResultArgs = (
+    Vec<f64>,
+    f64,
+    f64,
+    bool,
+    usize,
+    String,
+    String,
+    Vec<f64>,
+    Vec<(String, f64)>,
+    Vec<(usize, f64, f64, f64, f64)>,
+    bool,
+    Vec<String>,
+);
+
 #[pymethods]
 impl FittingResult {
+    #[new]
+    #[allow(clippy::too_many_arguments)]
+    fn new(
+        parameters: Vec<f64>,
+        r_squared: f64,
+        rmse: f64,
+        converged: bool,
+        iterations: usize,
+        message: String,
+        status: String,
+        parameter_std: Vec<f64>,
+        diagnostics: Vec<(String, f64)>,
+        trace: Vec<(usize, f64, f64, f64, f64)>,
+        fallback_used: bool,
+        warnings: Vec<String>,
+    ) -> Self {
+        Self {
+            parameters,
+            r_squared,
+            rmse,
+            converged,
+            iterations,
+            message,
+            status,
+            parameter_std,
+            diagnostics,
+            trace,
+            fallback_used,
+            warnings,
+        }
+    }
+
+    /// Pickle, and so `copy.deepcopy` and process pools, rebuild a result by
+    /// passing these to the constructor. Without it a fitted `Variogram`, which
+    /// holds one, could not be sent to a worker process.
+    fn __getnewargs__(&self) -> FittingResultArgs {
+        (
+            self.parameters.clone(),
+            self.r_squared,
+            self.rmse,
+            self.converged,
+            self.iterations,
+            self.message.clone(),
+            self.status.clone(),
+            self.parameter_std.clone(),
+            self.diagnostics.clone(),
+            self.trace.clone(),
+            self.fallback_used,
+            self.warnings.clone(),
+        )
+    }
+
     fn __repr__(&self) -> String {
         let escaped_message = self.message.replace('\'', "\\'");
         format!(
