@@ -16,16 +16,6 @@ depend on a helper that was never written.
 the variogram is marked as fitted. See
 [Directional variograms and anisotropy](guide/anisotropy.md).
 
-## `OrdinaryKriging.predict_parallel` fails
-
-`OrdinaryKriging.predict_parallel()` fails before making any prediction, whatever
-arguments it is given: it constructs `ParallelKrigingExecutor`,
-`ApproximateNeighborIndex` and `spatial_tiles` with arguments those APIs do not
-accept. It is also the only route to the neighbour-based kriging in the Rust core.
-[Large datasets](guide/large-data.md#kriging-many-locations) shows how to predict in
-batches, and how to krige from local neighbourhoods by hand.
-`benchmarks/kriging_parallel.py` fails for the same reason.
-
 ## Kriging can hang in a forked process
 
 The Rust core runs predictions on a pool of threads, and that pool does not survive

@@ -1,6 +1,7 @@
 # src/python/pygeostats/kriging/ordinary.py
 """Ordinary kriging implementation."""
 
+import warnings
 from pathlib import Path
 from typing import Optional, Tuple, Union
 
@@ -11,9 +12,7 @@ from sklearn.base import BaseEstimator, RegressorMixin
 
 from ..utils.validation import validate_coordinates, validate_values
 from ..variogram.models import Variogram
-from .executor import ParallelKrigingExecutor, spatial_tiles
 from ._solver import ordinary_system, ordinary_variance, variogram_parameters
-from .neighbor_search import ApproximateNeighborIndex
 
 
 class OrdinaryKriging(BaseEstimator, RegressorMixin):
@@ -144,43 +143,55 @@ class OrdinaryKriging(BaseEstimator, RegressorMixin):
         resume: bool = False,
         progress: bool = True,
     ) -> np.ndarray:
-        """Predict values using approximate neighbours and spatial tiling."""
+        """Deprecated: use :meth:`predict`, which computes targets in parallel.
 
-        if not self.is_fitted_:
-            raise ValueError("Model must be fitted before prediction")
+        This method never worked. It called ``ParallelKrigingExecutor``,
+        ``ApproximateNeighborIndex`` and ``spatial_tiles`` with arguments they do not
+        accept, so it raised for any input. It now returns ``predict(coordinates)``
+        and emits a ``FutureWarning``, and it will be removed in a future release.
 
-        pred_coords = validate_coordinates(coordinates)
-
-        variogram_params = np.array(
-            [self.variogram.nugget_, self.variogram.sill_, self.variogram.range_],
-            dtype=float,
+        Neighbour search, tiling, checkpointing and resuming were never implemented.
+        Their options are accepted so that existing calls do not fail, but they are
+        ignored, and the warning names any that were given.
+        """
+        defaults = {
+            "neighbors": 64,
+            "backend": None,
+            "search_k": None,
+            "grid_shape": None,
+            "halo": 0.0,
+            "chunk_size": 10_000,
+            "checkpoint_path": None,
+            "checkpoint_interval": 5,
+            "resume": False,
+            "progress": True,
+        }
+        given = {
+            "neighbors": neighbors,
+            "backend": backend,
+            "search_k": search_k,
+            "grid_shape": grid_shape,
+            "halo": halo,
+            "chunk_size": chunk_size,
+            "checkpoint_path": checkpoint_path,
+            "checkpoint_interval": checkpoint_interval,
+            "resume": resume,
+            "progress": progress,
+        }
+        ignored = sorted(
+            name for name, value in given.items() if value != defaults[name]
         )
 
-        executor = ParallelKrigingExecutor(
-            self.coordinates_, self.values_, variogram_params, self.variogram.model
+        message = (
+            "OrdinaryKriging.predict_parallel is deprecated and will be removed; use "
+            "predict, which already computes targets in parallel. It now returns "
+            "predict(coordinates)."
         )
-        neighbor_index = ApproximateNeighborIndex(
-            self.coordinates_, backend=backend, metric="euclidean"
-        )
+        if ignored:
+            message += " Ignored: " + ", ".join(ignored) + "."
+        warnings.warn(message, FutureWarning, stacklevel=2)
 
-        tile_plan = None
-        if grid_shape is not None:
-            tile_plan = spatial_tiles(pred_coords, grid_shape=grid_shape, halo=halo)
-
-        checkpoint = Path(checkpoint_path) if checkpoint_path is not None else None
-
-        return executor.predict(
-            pred_coords,
-            neighbor_index=neighbor_index,
-            neighbors=int(neighbors),
-            search_k=search_k,
-            tile_plan=tile_plan,
-            chunk_size=int(chunk_size),
-            checkpoint_path=checkpoint,
-            checkpoint_interval=int(max(checkpoint_interval, 1)),
-            progress=progress,
-            resume=resume,
-        )
+        return self.predict(coordinates)
 
     def score(self, coordinates: np.ndarray, values: np.ndarray) -> float:
         """

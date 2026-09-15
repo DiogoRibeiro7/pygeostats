@@ -136,6 +136,27 @@ class TestOrdinaryKriging:
         with pytest.raises(ValueError, match="must be fitted"):
             kriging.predict(self.pred_coords)
 
+    def test_predict_parallel_is_deprecated_and_returns_predict(self):
+        # It used to raise for any input.
+        kriging = OrdinaryKriging(self.variogram).fit(
+            self.known_coords, self.known_values
+        )
+
+        with pytest.warns(FutureWarning, match="predict_parallel is deprecated"):
+            predictions = kriging.predict_parallel(self.pred_coords)
+
+        np.testing.assert_array_equal(predictions, kriging.predict(self.pred_coords))
+
+    def test_predict_parallel_names_the_options_it_ignores(self):
+        kriging = OrdinaryKriging(self.variogram).fit(
+            self.known_coords, self.known_values
+        )
+
+        with pytest.warns(FutureWarning, match="Ignored: checkpoint_path, neighbors."):
+            kriging.predict_parallel(
+                self.pred_coords, neighbors=8, checkpoint_path="run.npz"
+            )
+
 
 class TestSimpleKriging:
     """Tests for the simple kriging workflow."""

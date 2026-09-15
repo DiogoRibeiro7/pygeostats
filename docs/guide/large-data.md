@@ -9,7 +9,7 @@ This page covers what pygeostats offers for each, and what that does not solve.
     Predictions and variances are computed for many targets at once in the Rust
     core, so `ParallelKrigingExecutor` rarely makes them faster; see
     [Parallel workers](#parallel-workers). `OrdinaryKriging.predict_parallel()`
-    fails.
+    is deprecated, and returns what `predict()` does.
 
 The examples use 1,000 samples:
 
