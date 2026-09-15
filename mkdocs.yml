@@ -93,4 +93,5 @@ nav:
       - pygeostats.utils: reference/utils.md
   - Known limitations: known-limitations.md
   - Development: development.md
+  - Roadmap: roadmap.md
   - Changelog: changelog.md

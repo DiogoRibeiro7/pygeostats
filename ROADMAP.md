@@ -1,176 +1,201 @@
-# PySpatialStats - Development Roadmap
+# Roadmap
 
-## Project Vision
+This is the plan for pygeostats from its current alpha releases to 1.0.0. The
+milestones are ordered, not dated: each is released when its work is done, and
+items can move between milestones as the work shows what is needed. Suggestions
+and pull requests are welcome in the
+[issue tracker](https://github.com/DiogoRibeiro7/pygeostats/issues).
 
-Create a comprehensive, high-performance spatial statistics library for Python with Rust-accelerated core algorithms, focusing on geostatistics and spatial analysis methods currently missing or underdeveloped in the Python ecosystem.
+## How versions work until 1.0
 
-## Phase 1: Foundation & Core Geostatistics (Months 1-3)
+- **Releases before 1.0 can change the API.** From 0.2.0, anything removed or
+  renamed is deprecated first, with a warning, for at least one minor release.
+- **Releases can be published as pre-releases first**, such as `0.2.0a1`. pip
+  installs pre-releases only while no stable release exists.
+- **1.0.0 starts Semantic Versioning:** no breaking changes without a new major
+  version.
 
-### 1.1 Project Setup
+## Where things stand: 0.1.0a2
 
-- [x] Package structure with Rust extensions (PyO3/maturin)
-- [x] CI/CD pipeline (GitHub Actions)
-- [x] Documentation framework (Sphinx + nbsphinx)
-- [x] Testing infrastructure (pytest + property-based testing)
-- [x] Benchmarking suite
+What works today is described in the
+[documentation](https://diogoribeiro7.github.io/pygeostats/):
 
-### 1.2 Core Variogram Engine (Rust)
+- **Variograms.** Empirical, directional and streaming variograms, and
+  exponential, spherical and Gaussian models fitted with a convergence report.
+- **Kriging.** Ordinary, simple, universal and anisotropic kriging. Each
+  estimator factorises its system once at `fit` and predicts in parallel in the
+  Rust core.
+- **Other analysis.** Point patterns, spatial autocorrelation, cross-validation,
+  model selection and plotting.
+- **Packaging.** Wheels for Linux, macOS and Windows covering Python 3.11 to
+  3.14, and documentation examples that run as tests.
 
-- [x] Distance calculation optimizations
-- [x] Empirical variogram computation
-- [x] Variogram model fitting (Exponential, Spherical, Gaussian, Matérn)
-- [x] Nugget effect handling
-- [x] Anisotropic variogram support
+The [known limitations](https://diogoribeiro7.github.io/pygeostats/known-limitations/)
+page lists what does not work yet. Each limitation on it is assigned to a
+milestone below, except the note that fits which cannot be trusted are reported,
+which is intended behaviour.
 
-### 1.3 Python API Layer
+## Released
 
-- [x] Variogram class with scikit-learn style API
-- [x] Integration with GeoPandas/NumPy arrays
-- [x] Plotting utilities (matplotlib integration)
-- [x] Model validation and diagnostics
+### 0.1.0a1 (2026-09-15)
 
-### 1.4 Basic Kriging Implementation
+- First release on PyPI, as an alpha pre-release, with wheels for five platforms
+  built against the stable ABI.
+- Variogram fitting that reaches the least-squares optimum and reports fits it
+  cannot trust.
+- Anisotropy detection that fits an ellipse through the directional ranges.
 
-- [x] Ordinary kriging (Rust core)
-- [x] Prediction variance calculation
-- [x] Cross-validation framework
-- [x] Memory-efficient large dataset handling
+### 0.1.0a2 (2026-09-15)
 
-## Phase 2: Advanced Kriging & Validation (Months 4-6)
+- A documentation site with user guides, an API reference and tested examples.
+- Kriging factorised once at `fit`: ordinary kriging of 4,000 targets from 2,000
+  samples fell from 14 s to 0.01 s.
+- Correct results from `ParallelKrigingExecutor`, and each kriging estimator's own
+  variance.
+- `OrdinaryKriging.predict_parallel()` deprecated.
 
-### 2.1 Extended Kriging Methods
+The [changelog](https://github.com/DiogoRibeiro7/pygeostats/blob/main/CHANGELOG.md)
+has the details.
 
-- [x] Simple kriging
-- [x] Universal kriging (with trend modeling)
-- [ ] Block kriging
-- [ ] Indicator kriging
-- [ ] Co-kriging basics
+## Planned
 
-### 2.2 Validation & Diagnostics
+### 0.2.0: anisotropy end to end
 
-- [x] Leave-one-out cross-validation
-- [x] K-fold spatial cross-validation
-- [x] Model selection criteria (AIC, BIC)
-- [x] Residual analysis tools
-- [x] Kriging neighborhood optimization
+**Goal:** go from directional variograms to anisotropic kriging without setting
+parameters by hand, with estimates whose accuracy is measured.
 
-### 2.3 Performance Optimization
+- **Fit anisotropic models from directional variograms.** Implement
+  `DirectionalVariogram.estimate_initial_parameters()` and
+  `create_anisotropic_variogram_from_directional()`, which raise
+  `NotImplementedError`. Their two strict `xfail` tests become ordinary tests.
+- **Measure and improve the anisotropy estimates.** On samples of a few hundred
+  points:
+  - the axis from `detect_anisotropy()` is often tens of degrees off, and its
+    ratio runs low;
+  - `InitializationEnsemble` blends the layout of the samples into its angle;
+  - `RangeInitializer` returns starting values rather than model ranges.
 
-- [x] Parallel processing for large datasets
-- [x] Sparse matrix optimizations
-- [x] Memory mapping for huge datasets
-- [x] GPU acceleration exploration (CuPy integration)
+  Benchmark them on simulated fields with known anisotropy, publish the errors,
+  and set accuracy thresholds in the tests.
+- **One angle convention.** `AnisotropicKriging` measures its rotation clockwise
+  and `DirectionalVariogram` counter-clockwise. Move to counter-clockwise
+  everywhere, deprecating the old convention first.
+- **Matérn models.** Fit them, including their smoothness, or stop accepting
+  `model="matern"`.
 
-## Phase 3: Point Pattern Analysis (Months 7-9)
+**Done when** the anisotropy guide and example run without hand-set parameters,
+and the accuracy results are in the documentation.
 
-### 3.1 Basic Point Pattern Tools
+### 0.3.0: large datasets
 
-- [x] Nearest neighbor analysis
-- [x] Ripley's K and L functions
-- [x] G and F functions
-- [x] Pair correlation function
+**Goal:** krige tens of thousands of samples with a documented, benchmarked
+workflow.
 
-### 3.2 Spatial Clustering
+- **Neighbourhood kriging.** Predict each target from its nearest samples, rather
+  than building local neighbourhoods by hand as the large-datasets guide does
+  now. The Rust core already has neighbour-based ordinary kriging,
+  `ordinary_kriging_predict_neighbors`, which nothing calls.
+- **Remove `OrdinaryKriging.predict_parallel()`**, deprecated in 0.1.0a2.
+- **Fork safety.** Kriging can hang in a process forked after pygeostats has
+  predicted, because the Rust core's thread pool does not survive `fork`. Make
+  the core safe to use after a fork, or detect the fork and fall back.
+- **Faster variance.** The variance needs a solve for every target: 33 s for
+  16,000 targets from 4,000 samples.
+- **The parallel executor.** `ParallelKrigingExecutor` prints its progress to
+  standard output, and rarely helps now that `predict` runs in parallel. Report
+  progress through logging, and decide whether the executor stays.
+- **Variograms from subsamples.** Streaming variograms bound memory but still
+  visit every pair. Add a sampled option for very large datasets.
 
-- [x] DBSCAN spatial variant
-- [x] Hot spot analysis (Getis-Ord)
-- [x] Kernel density estimation
-- [x] Cluster validation metrics
+**Done when** the large-datasets guide shows neighbourhood kriging of a large
+dataset, with published timings.
 
-### 3.3 Point Process Models
+### 0.4.0: more kriging methods
 
-- [x] Poisson process simulation
-- [x] Cox process basics
-- [x] Marked point patterns
-- [x] Spatial segregation indices
+From the original roadmap, not yet started:
 
-## Phase 4: Spatial Autocorrelation & Regression (Months 10-12)
+- Block kriging.
+- Indicator kriging.
+- Co-kriging basics.
 
-### 4.1 Spatial Autocorrelation
+### 0.5.0: spatial regression
 
-- [x] Moran's I (global and local)
-- [x] Geary's C
-- [x] Getis-Ord statistics
-- [x] Spatial weights matrix creation
+From the original roadmap, not yet started:
 
-### 4.2 Spatial Regression
+- Spatial lag and spatial error models.
+- Geographically weighted regression.
+- Diagnostics and tests for these models.
 
-- [ ] Spatial lag models
-- [ ] Spatial error models
-- [ ] Geographically weighted regression
-- [ ] Model diagnostics and testing
+### 0.6.0: validation against reference implementations
 
-## Technical Architecture
+**Goal:** results that agree with established tools, checked by the tests.
 
-### Core Stack
+- **R gstat.** `tests/gstat_reference.py` emulates gstat in Python instead of
+  using gstat's own output. Generate reference results with gstat, store them as
+  test fixtures, and test against them. The original targets stand: fitted
+  variograms matching gstat's with an R² above 0.99, and ordinary kriging
+  predictions within 1% of gstat's.
+- **Other references.** Where an established implementation exists, such as
+  PySAL for spatial autocorrelation, compare against it the same way.
+- **Reproducible benchmarks.** Publish benchmarks together with the environment
+  they ran in, and measure the original goal of a tenfold speed-up over pure-Python
+  implementations. CONTRIBUTING asks for results from
+  `benchmarks/benchmark_variogram.py` and `benchmarks/compare_with_gstat.py`,
+  which do not exist yet.
 
-- **Python**: NumPy, SciPy, GeoPandas, scikit-learn compatibility
-- **Rust**: PyO3 + maturin for extensions
-- **Build**: maturin for Python packaging
-- **Performance**: BLAS/LAPACK integration, parallel processing
+### 0.7.0: code health
 
-### Package Structure
+- **Type annotations.** mypy reports 143 errors in 14 files and runs as an
+  advisory CI step. Clear them, make mypy a required check, and ship a `py.typed`
+  marker.
+- **Untested modules.** `pygeostats.acceleration` (GPU) and
+  `pygeostats.optimization` (memory-efficient kriging) have no tests, and
+  `pygeostats.kriging.neighbor_search` runs only in a documentation example. Test
+  them, or remove what should not ship. GPU support stays only if it is tested and
+  measurably faster.
+- **Coverage.** CI measures test coverage but only stores the report. Publish it,
+  and keep it from falling.
+- **Clean-up.** Remove the Rust prediction functions that factorising at `fit`
+  replaced, once the tests no longer use them as references, and lint
+  `benchmarks/` and `examples/` in CI.
 
-```
-pygeostats/
-├── src/
-│   ├── python/
-│   │   └── pygeostats/
-│   │       ├── __init__.py
-│   │       ├── variogram/
-│   │       ├── kriging/
-│   │       ├── point_patterns/
-│   │       └── spatial_regression/
-│   └── rust/
-│       ├── Cargo.toml
-│       ├── src/
-│       │   ├── lib.rs
-│       │   ├── variogram.rs
-│       │   ├── kriging.rs
-│       │   └── distances.rs
-│       └── pyproject.toml
-├── tests/
-├── benchmarks/
-├── docs/
-└── examples/
-```
+### 0.8.0: API review
 
-### API Design Principles
+**Goal:** a public API consistent enough to freeze.
 
-1. **Scikit-learn compatibility**: `.fit()`, `.predict()`, `.score()` methods
-2. **GeoPandas integration**: Native support for GeoDataFrames
-3. **NumPy array compatibility**: Work seamlessly with existing workflows
-4. **Consistent error handling**: Informative error messages
-5. **Memory efficiency**: Handle large datasets gracefully
+- **Bounds.** Point-pattern functions take `(xmin, xmax, ymin, ymax)`, and
+  `spatial_tiles` takes `(xmin, ymin, xmax, ymax)`. Use one order.
+- **DataFrame coordinates.** A DataFrame's first two columns are taken as the
+  coordinates, whatever their names. Let callers name the columns.
+- **scikit-learn conventions.** The estimators set fitted attributes in
+  `__init__`. Run scikit-learn's estimator checks, and fix or document what fails.
+- **Deprecations.** Complete every removal announced in earlier releases.
+- **Documentation.** Version the documentation site, and write a migration guide
+  from 0.x.
 
-## Success Metrics
+### 0.9.0: release candidate
 
-### Phase 1 Success
+- The API is frozen: only fixes and documentation changes.
+- The Python versions and platforms supported by 1.0 are confirmed.
+- Every known limitation is resolved, or documented as out of scope.
 
-- [ ] Variogram fitting matches gstat results (R² > 0.99)
-- [ ] Ordinary kriging predictions within 1% of gstat
-- [ ] 10x+ speed improvement over pure Python implementations
-- [ ] Clean API that feels "Pythonic"
+### 1.0.0: stable
 
-### Long-term Goals
+- A stable public API under Semantic Versioning, with deprecations lasting at least
+  one minor release.
+- Validation and benchmark results published in the documentation.
+- A citation file, `CITATION.cff`, so that the package can be cited.
 
-- [ ] 100+ GitHub stars and active community
-- [ ] Integration with major geospatial packages
-- [ ] Academic citations and real-world usage
-- [ ] Performance competitive with R packages
-- [ ] Comprehensive documentation and tutorials
+## After 1.0
 
-## Risk Mitigation
+Ideas, not scheduled:
 
-- **Technical**: Start simple, iterate based on user feedback
-- **Community**: Engage with pysal, geopandas communities early
-- **Maintenance**: Focus on code quality and comprehensive tests
-- **Scope creep**: Stick to roadmap, resist feature requests until stable
+- Tutorials and worked examples on real datasets.
+- Closer integration with the wider geospatial ecosystem, such as GeoPandas and
+  PySAL workflows.
 
-## Next Immediate Steps
+## Contributing
 
-1. [x] Set up basic package structure with Rust extensions
-2. [x] Implement core distance calculations in Rust
-3. [x] Create basic variogram class in Python
-4. [x] Set up testing and benchmarking infrastructure
-5. [x] Write initial documentation and examples
+To work on an item, open an issue first for anything larger than a fix, so the
+approach can be agreed before the code. The workflow is in
+[CONTRIBUTING.md](https://github.com/DiogoRibeiro7/pygeostats/blob/main/CONTRIBUTING.md).
