@@ -26,15 +26,6 @@ accept. It is also the only route to the neighbour-based kriging in the Rust cor
 batches, and how to krige from local neighbourhoods by hand.
 `benchmarks/kriging_parallel.py` fails for the same reason.
 
-## Parallel prediction is not faster
-
-`ParallelKrigingExecutor` returns the same predictions as `predict()`, but not
-sooner. Kriging prediction in the Rust core holds Python's global interpreter lock,
-so thread workers run one at a time, and every chunk factorises the kriging system
-again. In one measurement with 1,000 samples and 16,000 targets, `predict()` took
-4.0 s, eight threads 4.9 s and four processes 4.5 s. See
-[Large datasets](guide/large-data.md#parallel-workers).
-
 ## `AnisotropicKriging` measures its angle clockwise
 
 `AnisotropicKriging` rotates each separation counter-clockwise by the variogram's

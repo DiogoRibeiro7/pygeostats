@@ -12,6 +12,17 @@ follow [PEP 440](https://peps.python.org/pep-0440/).
   <https://diogoribeiro7.github.io/pygeostats/>: user guides, an API reference and
   known limitations. Its examples, and the README's, run as tests (#21, #22).
 
+### Changed
+
+- Kriging estimators factorise their kriging system once, at `fit`, and predict
+  from dual weights, with covariances computed in parallel in the Rust core.
+  `predict` no longer rebuilds and factorises the system on every call, and
+  `AnisotropicKriging` no longer builds its covariances in Python or solves a
+  system for every target (#24).
+- A singular kriging system, as when two samples share a location, raises
+  `ValueError` at `fit` instead of at `predict`. `AnisotropicKriging` also rejects a
+  variogram model other than exponential, spherical or Gaussian at `fit` (#24).
+
 ### Fixed
 
 - `ParallelKrigingExecutor` returns predictions in the order of the targets. Thread

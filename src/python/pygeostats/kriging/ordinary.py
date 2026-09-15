@@ -9,10 +9,10 @@ import numpy as np
 import pandas as pd
 from sklearn.base import BaseEstimator, RegressorMixin
 
-from .._core import kriging_variance, ordinary_kriging_predict
 from ..utils.validation import validate_coordinates, validate_values
 from ..variogram.models import Variogram
 from .executor import ParallelKrigingExecutor, spatial_tiles
+from ._solver import ordinary_system, ordinary_variance, variogram_parameters
 from .neighbor_search import ApproximateNeighborIndex
 
 
@@ -33,6 +33,7 @@ class OrdinaryKriging(BaseEstimator, RegressorMixin):
         self.coordinates_ = None
         self.values_ = None
         self.is_fitted_ = False
+        self._solution = None
 
     def fit(
         self,
@@ -53,6 +54,12 @@ class OrdinaryKriging(BaseEstimator, RegressorMixin):
         -------
         self : OrdinaryKriging
             Returns self for method chaining.
+
+        Raises
+        ------
+        ValueError
+            If the variogram is not fitted, or the kriging system is singular, as
+            it is when two samples share a location.
         """
         if not self.variogram.is_fitted_:
             raise ValueError("Variogram must be fitted before kriging")
@@ -63,8 +70,28 @@ class OrdinaryKriging(BaseEstimator, RegressorMixin):
         if len(self.coordinates_) != len(self.values_):
             raise ValueError("Coordinates and values must have same length")
 
+        self._solution = None
+        self._current_solution()
         self.is_fitted_ = True
         return self
+
+    def _current_solution(self):
+        """The factorised system and dual weights for the current variogram.
+
+        They are computed at fit, and again only if the variogram's parameters have
+        changed since.
+        """
+        parameters = variogram_parameters(self.variogram)
+        solution = self._solution
+        if solution is None or not solution[0].matches(
+            parameters, self.variogram.model
+        ):
+            system = ordinary_system(
+                self.coordinates_, parameters, self.variogram.model
+            )
+            solution = (system, system.solve(np.append(self.values_, 0.0)))
+            self._solution = solution
+        return solution
 
     def predict(
         self,
@@ -92,26 +119,13 @@ class OrdinaryKriging(BaseEstimator, RegressorMixin):
             raise ValueError("Model must be fitted before prediction")
 
         pred_coords = validate_coordinates(coordinates)
+        system, weights = self._current_solution()
 
-        # Get variogram parameters
-        variogram_params = np.array(
-            [self.variogram.nugget_, self.variogram.sill_, self.variogram.range_]
-        )
-
-        # Call Rust implementation
-        predictions = ordinary_kriging_predict(
-            self.coordinates_,
-            self.values_,
-            pred_coords,
-            variogram_params,
-            self.variogram.model,
-        )
+        # The weights hold one entry per sample, then the Lagrange multiplier.
+        predictions = system.covariance_sum(pred_coords, weights[:-1]) + weights[-1]
 
         if return_variance:
-            variance = kriging_variance(
-                self.coordinates_, pred_coords, variogram_params, self.variogram.model
-            )
-            return predictions, variance
+            return predictions, ordinary_variance(system, pred_coords)
 
         return predictions
 

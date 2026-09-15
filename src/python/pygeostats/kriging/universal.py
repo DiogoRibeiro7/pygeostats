@@ -12,9 +12,14 @@ import numpy as np
 import pandas as pd
 from sklearn.base import BaseEstimator, RegressorMixin
 
-from .._core import kriging_variance, universal_kriging_predict
 from ..utils.validation import validate_coordinates, validate_values
 from ..variogram.models import Variogram
+from ._solver import (
+    KrigingSystem,
+    ordinary_system,
+    ordinary_variance,
+    variogram_parameters,
+)
 
 _VALID_TRENDS = {"auto", "linear", "quadratic"}
 
@@ -40,13 +45,19 @@ class UniversalKriging(BaseEstimator, RegressorMixin):
         self.trend_: Optional[str] = None
         self.trend_aic_: Optional[Dict[str, float]] = None
         self.is_fitted_: bool = False
+        self._solution = None
+        self._variance_system: Optional[KrigingSystem] = None
 
     def fit(
         self,
         coordinates: Union[np.ndarray, gpd.GeoDataFrame, pd.DataFrame],
         values: Union[np.ndarray, pd.Series],
     ) -> UniversalKriging:
-        """Fit the universal kriging model."""
+        """Fit the universal kriging model and factorise its system.
+
+        Raises ``ValueError`` if the variogram is not fitted, or the system is
+        singular, as it is when two samples share a location.
+        """
         if not self.variogram.is_fitted_:
             raise ValueError("Variogram must be fitted before kriging")
 
@@ -62,8 +73,41 @@ class UniversalKriging(BaseEstimator, RegressorMixin):
         self.values_ = vals
         self.trend_ = selected_trend
         self.trend_aic_ = trend_scores
+        self._solution = None
+        self._variance_system = None
+        self._current_solution()
         self.is_fitted_ = True
         return self
+
+    def _current_solution(self):
+        """The factorised system and dual weights for the current variogram and trend."""
+        parameters = variogram_parameters(self.variogram)
+        solution = self._solution
+        if (
+            solution is None
+            or solution[2] != self.trend_
+            or not solution[0].matches(parameters, self.variogram.model)
+        ):
+            drift = _design_matrix(self.coordinates_, self.trend_)
+            system = KrigingSystem.build(
+                self.coordinates_, parameters, self.variogram.model, drift=drift
+            )
+            rhs = np.concatenate([self.values_, np.zeros(drift.shape[1])])
+            solution = (system, system.solve(rhs), self.trend_)
+            self._solution = solution
+        return solution
+
+    def _current_variance_system(self) -> KrigingSystem:
+        # The variance reported is the ordinary kriging variance. Its system is
+        # factorised the first time it is needed.
+        parameters = variogram_parameters(self.variogram)
+        system = self._variance_system
+        if system is None or not system.matches(parameters, self.variogram.model):
+            system = ordinary_system(
+                self.coordinates_, parameters, self.variogram.model
+            )
+            self._variance_system = system
+        return system
 
     def predict(
         self,
@@ -77,28 +121,15 @@ class UniversalKriging(BaseEstimator, RegressorMixin):
             raise RuntimeError("Trend model not available. Did you call fit?")
 
         pred_coords = validate_coordinates(coordinates)
+        system, weights, trend = self._current_solution()
+        n_samples = system.n_samples
 
-        variogram_params = np.array(
-            [self.variogram.nugget_, self.variogram.sill_, self.variogram.range_],
-            dtype=float,
-        )
-
-        predictions = universal_kriging_predict(
-            self.coordinates_,
-            self.values_,
-            pred_coords,
-            variogram_params,
-            self.variogram.model,
-            self.trend_,
-        )
+        # The weights hold one entry per sample, then one per trend coefficient.
+        predictions = system.covariance_sum(pred_coords, weights[:n_samples])
+        predictions += _design_matrix(pred_coords, trend) @ weights[n_samples:]
 
         if return_variance:
-            variance = kriging_variance(
-                self.coordinates_,
-                pred_coords,
-                variogram_params,
-                self.variogram.model,
-            )
+            variance = ordinary_variance(self._current_variance_system(), pred_coords)
             return predictions, variance
 
         return predictions
@@ -153,23 +184,22 @@ def _trend_aic(coordinates: np.ndarray, values: np.ndarray, trend: str) -> float
 
 
 def _design_matrix(coordinates: np.ndarray, trend: str) -> np.ndarray:
-    features = [_trend_features(point, trend) for point in coordinates]
-    return np.asarray(features, dtype=float)
+    """Trend features for each row of ``coordinates``.
 
-
-def _trend_features(point: np.ndarray, trend: str) -> np.ndarray:
-    point = np.asarray(point, dtype=float)
-    features = [1.0]
-
-    if trend == "linear":
-        features.extend(point.tolist())
-    elif trend == "quadratic":
-        features.extend(point.tolist())
-        features.extend((point * point).tolist())
-        for i in range(len(point)):
-            for j in range(i + 1, len(point)):
-                features.append(point[i] * point[j])
-    else:
+    The columns are a constant, the coordinates and, for a quadratic trend, their
+    squares and then their pairwise products.
+    """
+    coordinates = np.asarray(coordinates, dtype=float)
+    if trend not in ("linear", "quadratic"):
         raise ValueError("trend must be 'linear' or 'quadratic'")
 
-    return np.asarray(features, dtype=float)
+    columns = [np.ones(len(coordinates)), *coordinates.T]
+    if trend == "quadratic":
+        n_dims = coordinates.shape[1]
+        columns.extend(coordinates.T**2)
+        columns.extend(
+            coordinates[:, i] * coordinates[:, j]
+            for i in range(n_dims)
+            for j in range(i + 1, n_dims)
+        )
+    return np.column_stack(columns)
