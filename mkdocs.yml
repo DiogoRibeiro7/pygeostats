@@ -1,0 +1,96 @@
+site_name: pygeostats
+site_description: Geostatistics for Python with a Rust-accelerated core
+site_url: https://diogoribeiro7.github.io/pygeostats/
+repo_url: https://github.com/DiogoRibeiro7/pygeostats
+repo_name: DiogoRibeiro7/pygeostats
+edit_uri: edit/main/docs/
+copyright: Copyright &copy; Diogo Ribeiro. Released under the MIT License.
+
+theme:
+  name: material
+  features:
+    - content.code.copy
+    - navigation.footer
+    - navigation.sections
+    - navigation.top
+    - search.highlight
+    - search.suggest
+    - toc.follow
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: teal
+      accent: teal
+      toggle:
+        icon: material/weather-night
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: teal
+      accent: teal
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to light mode
+
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          paths: [src/python]
+          options:
+            docstring_style: numpy
+            filters: ["!^_"]
+            heading_level: 2
+            members_order: source
+            merge_init_into_class: true
+            separate_signature: true
+            show_root_heading: false
+            show_signature_annotations: true
+            show_source: false
+            show_symbol_type_heading: true
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.arithmatex:
+      generic: true
+  - pymdownx.details
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets:
+      check_paths: true
+  - pymdownx.superfences
+
+extra_javascript:
+  - javascripts/mathjax.js
+  - https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js
+
+nav:
+  - Home: index.md
+  - Getting started:
+      - Installation: getting-started/installation.md
+      - Quickstart: getting-started/quickstart.md
+  - User guide:
+      - Variograms: guide/variograms.md
+      - Directional variograms and anisotropy: guide/anisotropy.md
+      - Kriging: guide/kriging.md
+      - Large datasets: guide/large-data.md
+      - Point patterns: guide/point-patterns.md
+      - Spatial autocorrelation: guide/autocorrelation.md
+      - Validation and model selection: guide/validation.md
+      - Plotting: guide/plotting.md
+  - API reference:
+      - pygeostats.variogram: reference/variogram.md
+      - pygeostats.kriging: reference/kriging.md
+      - pygeostats.point_patterns: reference/point_patterns.md
+      - pygeostats.spatial_autocorrelation: reference/spatial_autocorrelation.md
+      - pygeostats.validation: reference/validation.md
+      - pygeostats.utils: reference/utils.md
+  - Known limitations: known-limitations.md
+  - Development: development.md
+  - Changelog: changelog.md

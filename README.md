@@ -6,6 +6,8 @@
 Geostatistics for Python with a Rust-accelerated core: variograms, kriging,
 point-pattern analysis and spatial autocorrelation.
 
+**Documentation:** <https://diogoribeiro7.github.io/pygeostats/>
+
 ## Status
 
 **Alpha. `0.1.0a1` is published to PyPI as a pre-release, and the package is not
@@ -24,11 +26,11 @@ on PyPI by Jasper Roebroek. The two are unrelated.
 ## Features
 
 * **Variograms** — empirical estimation, theoretical models (exponential,
-  spherical, gaussian, Matérn), directional variograms and anisotropy detection
+  spherical and Gaussian), directional variograms and anisotropy detection
 * **Kriging** — ordinary, simple and universal, with prediction variance
-* **Large data** — streaming variogram accumulators, memory-mapped input and
-  sparse bin summaries; kriging with approximate neighbours, spatial tiling,
-  checkpointing and resume via `predict_parallel()`
+* **Large data** — variograms computed in streaming chunks, from memory-mapped
+  input if needed, with sparse bin summaries; neighbour search for local
+  kriging neighbourhoods
 * **Point patterns** — nearest-neighbour distances, Ripley's K and L, G and F
   functions, pair correlation, DBSCAN, kernel density, Poisson and Cox process
   simulation, spatial segregation indices
@@ -126,6 +128,14 @@ result = morans_i(values, weights)
 * `InitializationEnsemble` blends the principal axis of the sampling locations
   into its angle, which can pull it off the field's axis: in one test it reported
   74 degrees for an axis at 60.
+* `OrdinaryKriging.predict_parallel()` fails before making any prediction: it
+  calls `ParallelKrigingExecutor`, `ApproximateNeighborIndex` and
+  `spatial_tiles` with arguments they do not accept.
+* `ParallelKrigingExecutor` can return predictions in the wrong order in thread
+  mode, fails for fitted models in process mode, and can return NaN with its
+  spatial strategy. Predict large grids in batches with `predict()` instead.
+* `StreamingVariogramBuilder.add_pairs()` raises `TypeError` unless `weights`
+  is passed, although it is documented as optional.
 
 The point-pattern, spatial-autocorrelation and clustering modules are not
 affected by any of the above and pass their tests.
@@ -143,7 +153,7 @@ runs as an advisory CI step rather than a gate.
 ```bash
 pip install -e ".[dev,test]"
 
-pytest tests/                  # 183 passed, 2 xfailed
+pytest tests/                  # 195 passed, 2 xfailed
 black --check src/python/ tests/
 ruff check src/python/ tests/
 cargo fmt --all -- --check

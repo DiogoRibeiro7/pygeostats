@@ -42,6 +42,7 @@ dependencies = [
 ]
 
 [project.urls]
+Documentation = "https://diogoribeiro7.github.io/pygeostats/"
 Repository = "https://github.com/DiogoRibeiro7/pygeostats"
 Issues = "https://github.com/DiogoRibeiro7/pygeostats/issues"
 Changelog = "https://github.com/DiogoRibeiro7/pygeostats/blob/main/CHANGELOG.md"
@@ -57,13 +58,14 @@ dev = [
     "black",
     "ruff",
     "mypy",
-    "sphinx",
-    "nbsphinx",
     "jupyter",
 ]
 approx = ["annoy>=1.17"]       # ApproximateNeighborIndex backend
 progress = ["tqdm>=4.60"]      # progress bars in the parallel executors
 plotting = ["plotly>=5.0"]     # interactive plots alongside matplotlib
+# The documentation site. docs/requirements.txt pins the versions CI builds with.
+# MkDocs 2.0 removes the plugin system that mkdocstrings and Material rely on.
+docs = ["mkdocs>=1.6,<2", "mkdocs-material>=9.7", "mkdocstrings[python]>=1.0"]
 test = [
     "pytest>=7.0",
     "pytest-benchmark",

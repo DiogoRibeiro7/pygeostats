@@ -1,0 +1,3 @@
+# pygeostats.validation
+
+::: pygeostats.validation

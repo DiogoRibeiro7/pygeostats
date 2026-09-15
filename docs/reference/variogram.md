@@ -1,0 +1,3 @@
+# pygeostats.variogram
+
+::: pygeostats.variogram

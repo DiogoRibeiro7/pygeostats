@@ -48,7 +48,7 @@ pygeostats/
 ├─ src/rust/                    # Rust core crates (if split)
 ├─ tests/                       # pytest suite
 ├─ examples/                    # scripts & notebooks
-└─ docs/                        # Sphinx docs
+└─ docs/                        # MkDocs site
 ```
 
 --------------------------------------------------------------------------------
@@ -58,11 +58,11 @@ pygeostats/
 ### Python
 
 - **Typing** mandatory on all public functions, classes, and module-level variables.
-- Use **Google-style docstrings** with type hints (Sphinx + napoleon).
+- Use **NumPy-style docstrings**; the API reference is generated from them.
 - Keep **inline comments** concise and informative. Prefer explaining _why_ over _what_ when the code is self-evident.
 - Prefer **NumPy**/**SciPy** primitives; avoid heavy deps unless justified.
 - Raise **specific exceptions** with clear, actionable messages.
-- Public API should be stable and minimal. Mark experimental APIs with `.. warning::` in docs and `@deprecated` notes when applicable.
+- Public API should be stable and minimal. Mark experimental APIs with a `Warnings` section in the docstring and `@deprecated` notes when applicable.
 
 **Linters & Formatters** (run locally or use `pre-commit`):
 
@@ -103,16 +103,21 @@ pytest tests/ -v --cov=pygeostats --cov-report=term-missing
 
 ## Documentation
 
-- Build with Sphinx (Read the Docs theme) + nbsphinx.
-- All public APIs must have docstrings and appear in the API rst.
-- Include **usage examples** and **parameter constraints**.
-- Prefer short runnable snippets. For plots, keep runtimes reasonable.
+- The site is built with MkDocs and the Material theme. The API reference is
+  generated from the docstrings by mkdocstrings.
+- Docstrings use the NumPy style. All public APIs need one, with **usage notes**
+  and **parameter constraints**.
+- Every `python` code block under `docs/` runs in `tests/test_docs_examples.py`, one
+  namespace per page. Keep examples short and fast. Fence Python that should not
+  run, such as an example needing an optional dependency, as `py`: it is
+  highlighted the same way but skipped.
 
 **Build docs**
 
 ```bash
-make -C docs html
-# open docs/_build/html/index.html
+pip install -r docs/requirements.txt
+mkdocs serve            # live preview at http://127.0.0.1:8000
+mkdocs build --strict   # what CI runs
 ```
 
 --------------------------------------------------------------------------------
@@ -183,7 +188,7 @@ Please include:
       `cargo test --no-default-features --features parallel` (the flags matter: `extension-module`
       stops libpython being linked, so a plain `cargo test` fails to link on Linux and macOS)
 - [ ] Tests added/updated; coverage not reduced
-- [ ] Docs updated and `make -C docs html` succeeds
+- [ ] Docs updated and `mkdocs build --strict` succeeds
 - [ ] Benchmarks run for core numeric changes; results included
 - [ ] No large files; CI green
 
