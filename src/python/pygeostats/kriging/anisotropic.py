@@ -12,6 +12,9 @@ from sklearn.base import BaseEstimator, RegressorMixin
 
 from ..utils.validation import validate_coordinates, validate_values
 from ..variogram.models import Variogram
+from ._solver import ordinary_system, ordinary_variance
+
+_MODELS = {"exponential", "spherical", "gaussian"}
 
 
 class AnisotropicKriging(BaseEstimator, RegressorMixin):
@@ -56,6 +59,7 @@ class AnisotropicKriging(BaseEstimator, RegressorMixin):
         self.coordinates_ = None
         self.values_ = None
         self.is_fitted_ = False
+        self._solution = None
 
     def fit(
         self,
@@ -76,6 +80,13 @@ class AnisotropicKriging(BaseEstimator, RegressorMixin):
         -------
         self : AnisotropicKriging
             Returns self for method chaining.
+
+        Raises
+        ------
+        ValueError
+            If the coordinates are not 2D, the variogram model is not exponential,
+            spherical or Gaussian, or the kriging system is singular, as it is when
+            two samples share a location.
         """
         self.coordinates_ = validate_coordinates(coordinates)
         self.values_ = validate_values(values)
@@ -86,6 +97,11 @@ class AnisotropicKriging(BaseEstimator, RegressorMixin):
         if len(self.coordinates_) != len(self.values_):
             raise ValueError("Coordinates and values must have same length")
 
+        if self.variogram.model not in _MODELS:
+            raise ValueError(f"Unknown variogram model: {self.variogram.model}")
+
+        self._solution = None
+        self._current_solution()
         self.is_fitted_ = True
         return self
 
@@ -121,75 +137,46 @@ class AnisotropicKriging(BaseEstimator, RegressorMixin):
                 "Prediction coordinates must be 2D for anisotropic kriging"
             )
 
-        n_known = len(self.coordinates_)
-        n_pred = len(pred_coords)
+        system, weights, _ = self._current_solution()
+        targets = self._to_isotropic(pred_coords)
 
-        # Build anisotropic covariance matrix for known points
-        C = self._build_covariance_matrix(self.coordinates_, self.coordinates_)
-
-        # Add unbiasedness constraint
-        system_matrix = np.zeros((n_known + 1, n_known + 1))
-        system_matrix[:n_known, :n_known] = C
-        system_matrix[n_known, :n_known] = 1.0
-        system_matrix[:n_known, n_known] = 1.0
-
-        # Solve for weights for each prediction point
-        predictions = np.zeros(n_pred)
-        variances = np.zeros(n_pred) if return_variance else None
-
-        try:
-            # Pre-factorize the system matrix
-            from scipy.linalg import solve
-
-            for i in range(n_pred):
-                # Build RHS vector
-                rhs = np.zeros(n_known + 1)
-
-                # Compute covariances between prediction point and known points
-                pred_point = pred_coords[i : i + 1]
-                c0 = self._build_covariance_matrix(self.coordinates_, pred_point)
-                rhs[:n_known] = c0.flatten()
-                rhs[n_known] = 1.0  # unbiasedness constraint
-
-                # Solve for weights
-                weights = solve(system_matrix, rhs)
-
-                # Compute prediction
-                predictions[i] = np.dot(weights[:n_known], self.values_)
-
-                # Compute variance if requested
-                if return_variance:
-                    # Kriging variance: C(0,0) - w^T * c0 - lambda
-                    c00 = self._anisotropic_covariance(
-                        0.0
-                    )  # variance at prediction point
-                    variances[i] = (
-                        c00 - np.dot(weights[:n_known], c0.flatten()) - weights[n_known]
-                    )
-                    variances[i] = max(variances[i], 0.0)  # ensure non-negative
-
-        except np.linalg.LinAlgError as err:
-            raise ValueError(
-                "Singular covariance matrix - check for duplicate points or poor conditioning"
-            ) from err
+        # The weights hold one entry per sample, then the Lagrange multiplier.
+        predictions = system.covariance_sum(targets, weights[:-1]) + weights[-1]
 
         if return_variance:
-            return predictions, variances
+            return predictions, ordinary_variance(system, targets)
         return predictions
 
-    def _build_covariance_matrix(
-        self, coords1: np.ndarray, coords2: np.ndarray
-    ) -> np.ndarray:
-        """Build anisotropic covariance matrix between two sets of coordinates."""
-        n1, n2 = len(coords1), len(coords2)
-        C = np.zeros((n1, n2))
+    def _current_solution(self):
+        """The factorised system and dual weights for the current parameters.
 
-        for i in range(n1):
-            for j in range(n2):
-                aniso_distance = self._anisotropic_distance(coords1[i], coords2[j])
-                C[i, j] = self._anisotropic_covariance(aniso_distance)
+        Rotating and scaling the coordinates turns anisotropic distances into
+        Euclidean ones with a range of 1, so ordinary kriging in those coordinates
+        is anisotropic kriging in the original ones.
+        """
+        key = (
+            self.nugget,
+            self.sill,
+            self.range_major,
+            self.range_minor,
+            self.rotation_angle,
+            self.variogram.model,
+        )
+        solution = self._solution
+        if solution is None or solution[2] != key:
+            parameters = np.array([self.nugget, self.sill, 1.0], dtype=float)
+            system = ordinary_system(
+                self._to_isotropic(self.coordinates_), parameters, self.variogram.model
+            )
+            weights = system.solve(np.append(self.values_, 0.0))
+            solution = (system, weights, key)
+            self._solution = solution
+        return solution
 
-        return C
+    def _to_isotropic(self, coordinates: np.ndarray) -> np.ndarray:
+        """Coordinates in which anisotropic distance is Euclidean distance."""
+        rotated = np.asarray(coordinates, dtype=float) @ self.rotation_matrix.T
+        return rotated / np.array([self.range_major, self.range_minor], dtype=float)
 
     def _anisotropic_distance(self, point1: np.ndarray, point2: np.ndarray) -> float:
         """Compute anisotropic distance between two points."""
@@ -206,32 +193,6 @@ class AnisotropicKriging(BaseEstimator, RegressorMixin):
 
         # Euclidean distance in scaled space
         return np.linalg.norm(scaled_delta)
-
-    def _anisotropic_covariance(self, aniso_distance: float) -> float:
-        """Compute covariance from anisotropic distance using variogram model."""
-        if aniso_distance == 0.0:
-            return self.sill
-
-        # Convert covariance to semivariance then back to covariance
-        gamma = self._variogram_function(aniso_distance)
-        return self.sill - gamma
-
-    def _variogram_function(self, h: float) -> float:
-        """Calculate variogram values using the fitted model."""
-        if self.variogram.model == "exponential":
-            return self.nugget + (self.sill - self.nugget) * (1 - np.exp(-h))
-
-        elif self.variogram.model == "spherical":
-            if h >= 1.0:
-                return self.sill
-            else:
-                return self.nugget + (self.sill - self.nugget) * (1.5 * h - 0.5 * h**3)
-
-        elif self.variogram.model == "gaussian":
-            return self.nugget + (self.sill - self.nugget) * (1 - np.exp(-(h**2)))
-
-        else:
-            raise ValueError(f"Unknown variogram model: {self.variogram.model}")
 
     def score(self, coordinates: np.ndarray, values: np.ndarray) -> float:
         """

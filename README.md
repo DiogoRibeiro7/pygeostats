@@ -174,9 +174,8 @@ autocorrelation and validation workflows are tested and documented, but:
   angle clockwise, unlike `DirectionalVariogram`.
 - **Anisotropy estimates are rough.** The ratio from `detect_anisotropy()` runs low,
   and on a few hundred samples the estimated axis can be tens of degrees off.
-- **Parallel prediction is not faster.** `OrdinaryKriging.predict_parallel()`
-  fails, and `ParallelKrigingExecutor` returns the same predictions as `predict()`
-  but no sooner.
+- **`OrdinaryKriging.predict_parallel()` fails**, whatever arguments it is given.
+  `predict()` already computes targets in parallel.
 - **Matérn models cannot be fitted**, only exponential, spherical and Gaussian ones.
 - **`StreamingVariogramBuilder.add_pairs()` needs `weights`**, although it is
   documented as optional.

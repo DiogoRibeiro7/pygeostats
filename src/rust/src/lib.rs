@@ -13,7 +13,8 @@ use anisotropic_kriging::{
 };
 use distances::{euclidean_distances, haversine_distances};
 use kriging::{
-    kriging_variance, ordinary_kriging_predict, ordinary_kriging_predict_neighbors,
+    covariance_between, dual_kriging_predict, factorised_kriging_variance, kriging_variance,
+    lu_factorize, lu_solve, ordinary_kriging_predict, ordinary_kriging_predict_neighbors,
     simple_kriging_predict, universal_kriging_predict,
 };
 use variogram::{
@@ -38,6 +39,11 @@ fn _core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(fit_anisotropic_variogram, m)?)?;
 
     // Kriging functions
+    m.add_function(wrap_pyfunction!(covariance_between, m)?)?;
+    m.add_function(wrap_pyfunction!(dual_kriging_predict, m)?)?;
+    m.add_function(wrap_pyfunction!(factorised_kriging_variance, m)?)?;
+    m.add_function(wrap_pyfunction!(lu_factorize, m)?)?;
+    m.add_function(wrap_pyfunction!(lu_solve, m)?)?;
     m.add_function(wrap_pyfunction!(ordinary_kriging_predict, m)?)?;
     m.add_function(wrap_pyfunction!(ordinary_kriging_predict_neighbors, m)?)?;
     m.add_function(wrap_pyfunction!(simple_kriging_predict, m)?)?;

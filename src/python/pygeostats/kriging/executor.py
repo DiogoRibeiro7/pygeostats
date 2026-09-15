@@ -235,9 +235,8 @@ class ParallelKrigingExecutor:
         Notes
         -----
         With ``execution_method="process"``, the model is pickled and sent to
-        worker processes. Where processes are spawned rather than forked, as on
-        Windows and macOS, call this from code guarded by
-        ``if __name__ == "__main__":``.
+        worker processes, which are always spawned rather than forked. Call this
+        from code guarded by ``if __name__ == "__main__":``.
         """
         prediction_coordinates = validate_coordinates(prediction_coordinates)
         n_pred = len(prediction_coordinates)
@@ -345,12 +344,17 @@ class ParallelKrigingExecutor:
                     self.progress_callback(completed, len(tasks))
             return results
 
-        pool_class = (
-            ThreadPoolExecutor
-            if self.execution_method == "thread"
-            else ProcessPoolExecutor
-        )
-        with pool_class(max_workers=self.n_workers) as pool:
+        if self.execution_method == "thread":
+            pool = ThreadPoolExecutor(max_workers=self.n_workers)
+        else:
+            # Always spawned, never forked. The Rust core predicts on a pool of
+            # threads that does not survive a fork, so a forked worker predicting
+            # after the parent had waited on that pool forever: the tests hung on
+            # Linux with Python 3.11 to 3.13, where fork is the default.
+            pool = ProcessPoolExecutor(
+                max_workers=self.n_workers, mp_context=mp.get_context("spawn")
+            )
+        with pool:
             futures = [pool.submit(worker_func, task) for task in tasks]
             return self._collect_results_with_progress(futures)
 

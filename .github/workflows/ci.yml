@@ -67,6 +67,9 @@ jobs:
   test:
     name: ${{ matrix.os }} / Python ${{ matrix.python-version }}
     runs-on: ${{ matrix.os }}
+    # A test job takes 1 to 4 minutes. Without a limit, a hang runs until
+    # GitHub's six-hour default before it fails.
+    timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:

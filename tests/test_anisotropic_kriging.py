@@ -246,11 +246,10 @@ class TestAnisotropicKriging:
         )  # Slightly different values at same location
 
         kriging = AnisotropicKriging(self.aniso_variogram)
-        kriging.fit(coords_dup, values_dup)
 
-        # Prediction should raise error for singular matrix
+        # The system is factorised at fit, so a singular matrix is reported there
         with pytest.raises(ValueError, match="Singular covariance matrix"):
-            kriging.predict(np.array([[0.5, 0.5]]))
+            kriging.fit(coords_dup, values_dup)
 
 
 class TestDirectionalVariogramIntegration:

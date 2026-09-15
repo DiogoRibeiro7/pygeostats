@@ -26,14 +26,13 @@ accept. It is also the only route to the neighbour-based kriging in the Rust cor
 batches, and how to krige from local neighbourhoods by hand.
 `benchmarks/kriging_parallel.py` fails for the same reason.
 
-## Parallel prediction is not faster
+## Kriging can hang in a forked process
 
-`ParallelKrigingExecutor` returns the same predictions as `predict()`, but not
-sooner. Kriging prediction in the Rust core holds Python's global interpreter lock,
-so thread workers run one at a time, and every chunk factorises the kriging system
-again. In one measurement with 1,000 samples and 16,000 targets, `predict()` took
-4.0 s, eight threads 4.9 s and four processes 4.5 s. See
-[Large datasets](guide/large-data.md#parallel-workers).
+The Rust core runs predictions on a pool of threads, and that pool does not survive
+`fork`. A process forked after pygeostats has used it, such as a `multiprocessing`
+worker started with the `fork` method, the default on Linux before Python 3.14, can
+wait on the pool forever. Start such workers with the `spawn` or `forkserver` method
+instead. `ParallelKrigingExecutor` always spawns its process workers.
 
 ## `AnisotropicKriging` measures its angle clockwise
 

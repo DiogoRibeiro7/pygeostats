@@ -4,11 +4,12 @@ Two costs grow quickly with the number of samples. An empirical variogram visits
 every pair of samples, and ordinary kriging uses every sample for every prediction.
 This page covers what pygeostats offers for each, and what that does not solve.
 
-!!! note "Parallel prediction is not faster yet"
+!!! note "`predict` already runs in parallel"
 
-    `OrdinaryKriging.predict_parallel()` fails. `ParallelKrigingExecutor` returns the
-    same predictions as `predict()`, but no sooner; see
-    [Parallel workers](#parallel-workers).
+    Predictions and variances are computed for many targets at once in the Rust
+    core, so `ParallelKrigingExecutor` rarely makes them faster; see
+    [Parallel workers](#parallel-workers). `OrdinaryKriging.predict_parallel()`
+    fails.
 
 The examples use 1,000 samples:
 
@@ -160,12 +161,16 @@ from_npy = streaming_variogram(
 
 ## Kriging many locations
 
-Each call to `OrdinaryKriging.predict` sets up and factorises the kriging system for
-all the samples, work that grows with the cube of their number, and then solves it
-once for every target. With many samples, the set-up dominates, and predicting in
-batches repeats it for every batch: in one measurement with 1,000 samples, 400
-targets took 0.18 s in one call and 2 s in 20 batches. Use as few batches as memory
-allows:
+`fit` sets up and factorises the kriging system once, work that grows with the cube
+of the number of samples. After that, each prediction is a sum over the samples,
+computed for many targets in parallel, so a large grid costs about the same in one
+call as in batches. The variance needs a solve for every target, work that grows
+with the square of the number of samples.
+
+In one measurement with 1,000 samples and 16,000 targets, `fit` took 0.24 s,
+`predict` 0.04 s in one call and 0.05 s in 16 batches, and the variance 1.5 s. With
+4,000 samples, `fit` took 5.4 s and the variance 33 s. Batches bound the memory each
+call needs:
 
 ```python
 from pygeostats.kriging import OrdinaryKriging
@@ -193,17 +198,15 @@ executor = ParallelKrigingExecutor(n_workers=4, execution_method="thread", chunk
 parallel = executor.predict_parallel(kriging, targets)
 ```
 
-It is not faster than one `predict()` call yet, for two reasons:
+`predict` already uses every core, so the executor rarely helps. Thread workers
+share those same cores, and process workers also pay to start and to receive a
+pickled copy of the model, factorised system included. In one measurement with
+variance, at 1,000 samples and 16,000 targets, `predict` took 1.5 s, eight threads
+1.5 s and four processes 6.2 s; at 4,000 samples, `predict` took 33 s and four
+processes 27 s.
 
-- **Threads run one at a time.** Prediction in the Rust core holds Python's global
-  interpreter lock.
-- **Every chunk sets up the kriging system again**, as batches do. Process workers
-  avoid the lock, but also pay to start and to receive a pickled copy of the model.
-
-In one measurement with 1,000 samples and 16,000 targets, `predict()` took 4.0 s,
-eight threads 4.9 s and four processes 4.5 s.
-
-With `execution_method="process"` on Windows or macOS, call it from code guarded by
+Process workers are always spawned, never forked, so with
+`execution_method="process"` call it from code guarded by
 `if __name__ == "__main__":`. `progress_callback(completed, total)` is called as
 chunks finish, and the executor also prints progress messages.
 
