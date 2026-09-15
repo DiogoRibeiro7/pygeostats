@@ -4,7 +4,7 @@ build-backend = "maturin"
 
 [project]
 name = "pygeostats"
-version = "0.1.0"
+version = "0.1.0a1"
 description = "Geostatistics for Python with a Rust-accelerated core: variograms, kriging, point patterns and spatial autocorrelation"
 authors = [
     {name = "Diogo Ribeiro", email = "diogo_dj@hotmail.com"},
@@ -44,6 +44,7 @@ dependencies = [
 [project.urls]
 Repository = "https://github.com/DiogoRibeiro7/pygeostats"
 Issues = "https://github.com/DiogoRibeiro7/pygeostats/issues"
+Changelog = "https://github.com/DiogoRibeiro7/pygeostats/blob/main/CHANGELOG.md"
 
 # cupy is deliberately not declared as an extra: the correct distribution
 # depends on the installed CUDA version (cupy-cuda12x, cupy-cuda11x, ...) and

@@ -1,6 +1,6 @@
 [package]
 name = "pygeostats"
-version = "0.1.0"
+version = "0.1.0-alpha.1"
 edition = "2021"
 description = "Rust core for the pygeostats Python package: variogram estimation and fitting, kriging, and distance kernels"
 license = "MIT"

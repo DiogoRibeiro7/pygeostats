@@ -10,8 +10,8 @@ sys.path.insert(0, os.path.abspath('../src/python'))
 project = 'PySpatialStats'
 copyright = '2024, PySpatialStats Team'
 author = 'PySpatialStats Team'
-release = '0.1.0'
-version = '0.1.0'
+release = '0.1.0a1'
+version = '0.1.0a1'
 
 # General configuration
 extensions = [
