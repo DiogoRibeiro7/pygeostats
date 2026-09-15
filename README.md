@@ -148,9 +148,10 @@ print(morans_i(values, weights, permutations=999, random_state=0))
 
 The [Quickstart](https://diogoribeiro7.github.io/pygeostats/getting-started/quickstart/)
 walks through a complete workflow, including plots, and
-[`examples/basic_kriging.py`](https://github.com/DiogoRibeiro7/pygeostats/blob/main/examples/basic_kriging.py)
-and
+[`examples/basic_kriging.py`](https://github.com/DiogoRibeiro7/pygeostats/blob/main/examples/basic_kriging.py),
 [`examples/variogram_fitting.py`](https://github.com/DiogoRibeiro7/pygeostats/blob/main/examples/variogram_fitting.py)
+and
+[`examples/anisotropic_kriging_example.py`](https://github.com/DiogoRibeiro7/pygeostats/blob/main/examples/anisotropic_kriging_example.py)
 are complete scripts.
 
 ## Features
@@ -175,8 +176,6 @@ autocorrelation and validation workflows are tested and documented, but:
 - **Anisotropy estimates are rough.** The ratio from `detect_anisotropy()` runs low,
   and on a few hundred samples the estimated axis can be tens of degrees off.
 - **Matérn models cannot be fitted**, only exponential, spherical and Gaussian ones.
-- **`StreamingVariogramBuilder.add_pairs()` needs `weights`**, although it is
-  documented as optional.
 - **Type annotations are incomplete**, and mypy runs as an advisory CI step.
 
 The [known limitations](https://diogoribeiro7.github.io/pygeostats/known-limitations/)

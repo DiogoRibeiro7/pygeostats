@@ -79,6 +79,10 @@ impl StreamingVariogramAccumulator {
         Self::from_edges(edges)
     }
 
+    // Without an explicit default, PyO3 treats a trailing Option argument as
+    // required, so StreamingVariogramBuilder.add_pairs raised TypeError whenever
+    // it left the documented-optional weights out.
+    #[pyo3(signature = (distances, semivariances, weights=None))]
     pub fn update_pairs(
         &mut self,
         distances: PyReadonlyArray1<f64>,

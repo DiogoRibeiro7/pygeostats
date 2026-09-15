@@ -112,15 +112,10 @@ values:
 
 ```python
 pairs = StreamingVariogramBuilder(bin_edges)
-pairs.add_pairs(
-    np.array([1.2, 3.4, 7.9]),
-    np.array([0.05, 0.30, 0.12]),
-    weights=np.ones(3),
-)
+pairs.add_pairs(np.array([1.2, 3.4, 7.9]), np.array([0.05, 0.30, 0.12]))
 ```
 
-`weights` is documented as optional, but pass it: `add_pairs` currently raises
-`TypeError` without it.
+Each pair counts once unless `weights` gives it another weight.
 
 ### Data on disk
 
