@@ -4,7 +4,7 @@ build-backend = "maturin"
 
 [project]
 name = "pygeostats"
-version = "0.1.0a1"
+version = "0.1.0a2"
 description = "Geostatistics for Python with a Rust-accelerated core: variograms, kriging, point patterns and spatial autocorrelation"
 authors = [
     {name = "Diogo Ribeiro", email = "diogo_dj@hotmail.com"},

@@ -22,7 +22,7 @@ GeoDataFrames.
 [Changelog](https://github.com/DiogoRibeiro7/pygeostats/blob/main/CHANGELOG.md) ·
 [Issues](https://github.com/DiogoRibeiro7/pygeostats/issues)
 
-> **Alpha release.** `0.1.0a1` is on PyPI as a pre-release. The API may still
+> **Alpha release.** `0.1.0a2` is on PyPI as a pre-release. The API may still
 > change, and some features are unfinished or unreliable: read the
 > [known limitations](https://diogoribeiro7.github.io/pygeostats/known-limitations/)
 > before relying on anisotropy analysis.

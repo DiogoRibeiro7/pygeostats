@@ -20,7 +20,7 @@ source distribution, which needs a [Rust toolchain](https://rustup.rs).
 
 !!! note "Pre-releases"
 
-    The current release, 0.1.0a1, is a pre-release. pip installs it while no stable
+    The current release, 0.1.0a2, is a pre-release. pip installs it while no stable
     release exists. Once one does, use `pip install --pre pygeostats` to get
     pre-releases.
 
