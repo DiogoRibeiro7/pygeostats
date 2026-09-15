@@ -33,6 +33,12 @@ follow [PEP 440](https://peps.python.org/pep-0440/).
 
 ### Fixed
 
+- `StreamingVariogramBuilder.add_pairs()` works without `weights`, which it
+  documents as optional. It raised `TypeError`, because the Rust accumulator
+  required the argument (#27).
+- `examples/anisotropic_kriging_example.py` runs. It called the unimplemented
+  `create_anisotropic_variogram_from_directional` and used undefined variables; it
+  now follows the anisotropy guide (#27).
 - `SimpleKriging` and `UniversalKriging` report their own kriging variance. Both
   reported the ordinary kriging variance, which is too large for simple kriging and
   too small for universal kriging (#25).

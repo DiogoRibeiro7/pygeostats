@@ -33,13 +33,6 @@ fifth parameter, `rotation_angle`, before scaling it, so the major axis lies at
 from them: `rotation_angle = -np.radians(major_direction)`.
 `get_anisotropy_info()` reports the parameter as given.
 
-## `StreamingVariogramBuilder.add_pairs` needs weights
-
-`weights` is documented as optional, but `add_pairs()` raises `TypeError` without
-it. Pass `weights=np.ones(len(distances))` for unweighted pairs.
-`benchmarks/variogram_streaming.py --mode pairs` fails for this reason; its memmap
-mode works.
-
 ## Matérn models cannot be fitted
 
 `Variogram` accepts `model="matern"`, but `fit()` raises `ValueError`: the Rust core

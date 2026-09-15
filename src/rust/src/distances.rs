@@ -36,7 +36,10 @@ pub fn euclidean_distances<'py>(
 }
 
 /// Calculate Haversine distances for geographic coordinates (lat, lon in degrees)
-#[pyfunction]
+///
+/// The explicit default matters: PyO3 treats a trailing `Option` argument without
+/// one as required, so `radius` could not be left out.
+#[pyfunction(signature = (coords, radius=None))]
 pub fn haversine_distances<'py>(
     py: Python<'py>,
     coords: PyReadonlyArray2<f64>,

@@ -540,7 +540,9 @@ pub fn anisotropic_distance_matrix<'py>(
     Ok(distances.into_pyarray(py))
 }
 
-#[pyfunction]
+// PyO3 treats a trailing Option argument without an explicit default as required,
+// so weights could not be left out.
+#[pyfunction(signature = (distances, gamma, directions, model_type, initial_params, weights=None))]
 pub fn fit_anisotropic_variogram<'py>(
     py: Python<'py>,
     distances: PyReadonlyArray1<f64>,
