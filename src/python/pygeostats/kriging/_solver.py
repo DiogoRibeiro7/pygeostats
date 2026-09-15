@@ -106,6 +106,31 @@ class KrigingSystem:
             np.ascontiguousarray(weights, dtype=float),
         )
 
+    def variance(
+        self, targets: np.ndarray, drift: Optional[np.ndarray] = None
+    ) -> np.ndarray:
+        """Kriging variance at each target, for this system.
+
+        ``drift`` holds each target's drift terms, one row per target, matching the
+        drift columns the system was built with: a column of ones for ordinary
+        kriging, the trend features for universal kriging, and none for simple
+        kriging. For a target with covariances ``c`` to the samples, the system
+        gives weights ``w`` and Lagrange multipliers ``mu``, and the variance is
+        ``sill - w @ c - mu @ drift``, floored at zero.
+        """
+        targets = np.ascontiguousarray(targets, dtype=float)
+        if drift is None:
+            drift = np.empty((len(targets), 0))
+        return factorised_kriging_variance(
+            self.coordinates,
+            targets,
+            self.parameters,
+            self.model,
+            self.lu,
+            self.permutation,
+            np.ascontiguousarray(drift, dtype=float),
+        )
+
 
 def ordinary_system(
     coordinates: np.ndarray, parameters: np.ndarray, model: str
@@ -117,17 +142,5 @@ def ordinary_system(
 
 
 def ordinary_variance(system: KrigingSystem, targets: np.ndarray) -> np.ndarray:
-    """Ordinary kriging variance at each target, from a factorised ordinary system.
-
-    For a target with covariances ``c`` to the samples, the system gives weights
-    ``w`` and a Lagrange multiplier ``mu``, and the variance is
-    ``sill - w @ c - mu``, floored at zero.
-    """
-    return factorised_kriging_variance(
-        system.coordinates,
-        np.ascontiguousarray(targets, dtype=float),
-        system.parameters,
-        system.model,
-        system.lu,
-        system.permutation,
-    )
+    """Ordinary kriging variance at each target, from a factorised ordinary system."""
+    return system.variance(targets, np.ones((len(targets), 1)))

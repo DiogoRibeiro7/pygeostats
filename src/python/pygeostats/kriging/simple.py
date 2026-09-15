@@ -12,12 +12,7 @@ from sklearn.base import BaseEstimator, RegressorMixin
 
 from ..utils.validation import validate_coordinates, validate_values
 from ..variogram.models import Variogram
-from ._solver import (
-    KrigingSystem,
-    ordinary_system,
-    ordinary_variance,
-    variogram_parameters,
-)
+from ._solver import KrigingSystem, variogram_parameters
 
 
 class SimpleKriging(BaseEstimator, RegressorMixin):
@@ -38,7 +33,6 @@ class SimpleKriging(BaseEstimator, RegressorMixin):
         self.values_: Optional[np.ndarray] = None
         self.is_fitted_: bool = False
         self._solution = None
-        self._variance_system: Optional[KrigingSystem] = None
 
     def fit(
         self,
@@ -62,7 +56,6 @@ class SimpleKriging(BaseEstimator, RegressorMixin):
         self.coordinates_ = coords
         self.values_ = vals
         self._solution = None
-        self._variance_system = None
         self._current_solution()
         self.is_fitted_ = True
         return self
@@ -84,24 +77,18 @@ class SimpleKriging(BaseEstimator, RegressorMixin):
             self._solution = solution
         return solution
 
-    def _current_variance_system(self) -> KrigingSystem:
-        # The variance reported is the ordinary kriging variance. Its system is
-        # factorised the first time it is needed.
-        parameters = variogram_parameters(self.variogram)
-        system = self._variance_system
-        if system is None or not system.matches(parameters, self.variogram.model):
-            system = ordinary_system(
-                self.coordinates_, parameters, self.variogram.model
-            )
-            self._variance_system = system
-        return system
-
     def predict(
         self,
         coordinates: Union[np.ndarray, gpd.GeoDataFrame, pd.DataFrame],
         return_variance: bool = False,
     ) -> Union[np.ndarray, Tuple[np.ndarray, np.ndarray]]:
-        """Predict values at new locations."""
+        """Predict values at new locations.
+
+        With ``return_variance=True``, also return the simple kriging variance at
+        each location, ``sill - w @ c`` for weights ``w`` and covariances ``c`` to
+        the samples, floored at zero. It used to be the ordinary kriging variance,
+        which is larger, because ordinary kriging estimates the mean.
+        """
         if not self.is_fitted_:
             raise ValueError("Model must be fitted before prediction")
 
@@ -111,8 +98,7 @@ class SimpleKriging(BaseEstimator, RegressorMixin):
         predictions = mean + system.covariance_sum(pred_coords, weights)
 
         if return_variance:
-            variance = ordinary_variance(self._current_variance_system(), pred_coords)
-            return predictions, variance
+            return predictions, system.variance(pred_coords)
 
         return predictions
 

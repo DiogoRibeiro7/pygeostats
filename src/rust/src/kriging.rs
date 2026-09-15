@@ -158,11 +158,13 @@ pub fn lu_solve<'py>(
     Ok(Array1::from_vec(solution).into_pyarray(py))
 }
 
-/// Ordinary kriging variance at each target, from a factorised ordinary system.
+/// Kriging variance at each target, from a factorised system.
 ///
-/// For each target the covariances to the samples, bordered by a one, are solved
-/// against the factors, and the variance is the sill minus their dot product with
-/// the solution, floored at zero. Targets are processed in parallel with the GIL
+/// For each target, the right-hand side is its covariances to the samples followed
+/// by its drift terms, one row of `pred_drift`: a one for ordinary kriging, the
+/// trend features for universal kriging, and none for simple kriging. It is solved
+/// against the factors, and the variance is the sill minus its dot product with the
+/// solution, floored at zero. Targets are processed in parallel with the GIL
 /// released, each independently of the others, so the result does not depend on
 /// how targets are grouped into calls.
 #[pyfunction]
@@ -174,17 +176,24 @@ pub fn factorised_kriging_variance<'py>(
     model_type: &str,
     lu: PyReadonlyArray2<f64>,
     permutation: PyReadonlyArray1<i64>,
+    pred_drift: PyReadonlyArray2<f64>,
 ) -> PyResult<Bound<'py, PyArray1<f64>>> {
     let params = variogram_params.as_array();
     check_parameters(&params)?;
     let model = CovarianceModel::new(&params, model_type);
     let known_coords = known_coords.as_array();
     let pred_coords = pred_coords.as_array();
+    let pred_drift = pred_drift.as_array();
     let (lu, permutation, size) = factor_slices(&lu, &permutation)?;
     let n_known = known_coords.nrows();
-    if size != n_known + 1 {
+    if pred_drift.nrows() != pred_coords.nrows() {
         return Err(PyValueError::new_err(
-            "The factors must be of an ordinary kriging system for the known coordinates",
+            "pred_drift must have one row per prediction coordinate",
+        ));
+    }
+    if size != n_known + pred_drift.ncols() {
+        return Err(PyValueError::new_err(
+            "The factors must be of a system with one row per known coordinate and one per drift term",
         ));
     }
     if pred_coords.ncols() != known_coords.ncols() {
@@ -197,13 +206,16 @@ pub fn factorised_kriging_variance<'py>(
         pred_coords
             .axis_iter(Axis(0))
             .into_par_iter()
+            .zip(pred_drift.axis_iter(Axis(0)).into_par_iter())
             .map_init(
                 || (vec![0.0; size], vec![0.0; size]),
-                |(rhs, solution), target| {
+                |(rhs, solution), (target, drift)| {
                     for (entry, sample) in rhs.iter_mut().zip(known_coords.axis_iter(Axis(0))) {
                         *entry = model.covariance(euclidean_distance_single(target, sample));
                     }
-                    rhs[n_known] = 1.0;
+                    for (entry, term) in rhs[n_known..].iter_mut().zip(drift.iter()) {
+                        *entry = *term;
+                    }
                     lu_solve_into(lu, permutation, rhs, solution);
                     let explained: f64 = rhs.iter().zip(solution.iter()).map(|(a, b)| a * b).sum();
                     (model.sill - explained).max(0.0)

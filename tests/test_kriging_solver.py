@@ -3,8 +3,10 @@
 The estimators used to build and factorise their kriging system on every call to
 predict, then solve it once per target. They now factorise it at fit and predict
 from dual weights. The previous implementations, still exported by the Rust core,
-are the reference for ordinary, simple and universal kriging; a direct NumPy solve
-is the reference for anisotropic kriging.
+are the reference for ordinary, simple and universal kriging predictions and for the
+ordinary kriging variance. Direct NumPy solves are the reference for the simple and
+universal kriging variances, which used to be the ordinary kriging variance, and
+for anisotropic kriging.
 """
 
 import numpy as np
@@ -65,6 +67,39 @@ def _parameters():
     return np.array([NUGGET, SILL, RANGE])
 
 
+def _distances(first, second):
+    return np.linalg.norm(first[:, None, :] - second[None, :, :], axis=-1)
+
+
+def _trend(points, trend):
+    x, y = points[:, 0], points[:, 1]
+    columns = [np.ones(len(points)), x, y]
+    if trend == "quadratic":
+        columns += [x * x, y * y, x * y]
+    return np.column_stack(columns)
+
+
+def _direct_variance(coords, targets, model, trend=None):
+    """Kriging variance solved directly: sill minus r @ solve(K, r) per target.
+
+    With no trend this is simple kriging; with a trend, universal kriging.
+    """
+    n_samples = len(coords)
+    system = _covariance(_distances(coords, coords) / RANGE, model)
+    rhs = _covariance(_distances(targets, coords) / RANGE, model)
+    if trend is not None:
+        drift = _trend(coords, trend)
+        n_drift = drift.shape[1]
+        bordered = np.zeros((n_samples + n_drift, n_samples + n_drift))
+        bordered[:n_samples, :n_samples] = system
+        bordered[:n_samples, n_samples:] = drift
+        bordered[n_samples:, :n_samples] = drift.T
+        system = bordered
+        rhs = np.hstack([rhs, _trend(targets, trend)])
+    solution = np.linalg.solve(system, rhs.T)
+    return np.maximum(SILL - np.einsum("ij,ji->i", rhs, solution), 0.0)
+
+
 @pytest.mark.parametrize("model", MODELS)
 def test_ordinary_kriging_matches_per_target_solution(data, model):
     coords, values, targets = data
@@ -97,7 +132,7 @@ def test_simple_kriging_matches_per_target_solution(data, model):
     expected = _core.simple_kriging_predict(
         coords, values, targets, _parameters(), model, mean
     )
-    expected_variance = _core.kriging_variance(coords, targets, _parameters(), model)
+    expected_variance = _direct_variance(coords, targets, model)
     np.testing.assert_allclose(predictions, expected, rtol=1e-8, atol=1e-10)
     np.testing.assert_allclose(variance, expected_variance, rtol=1e-7, atol=1e-10)
 
@@ -116,9 +151,31 @@ def test_universal_kriging_matches_per_target_solution(data, model, trend):
     expected = _core.universal_kriging_predict(
         coords, values, targets, _parameters(), model, trend
     )
-    expected_variance = _core.kriging_variance(coords, targets, _parameters(), model)
+    expected_variance = _direct_variance(coords, targets, model, trend=trend)
     np.testing.assert_allclose(predictions, expected, rtol=1e-6, atol=1e-8)
-    np.testing.assert_allclose(variance, expected_variance, rtol=1e-7, atol=1e-10)
+    np.testing.assert_allclose(variance, expected_variance, rtol=1e-6, atol=1e-9)
+
+
+@pytest.mark.parametrize("model", MODELS)
+def test_variance_orders_simple_below_ordinary_below_universal(data, model):
+    # Knowing the mean removes uncertainty and estimating a trend adds it, so at
+    # the same locations simple kriging's variance is the smallest and universal
+    # kriging's the largest. Both used to report the ordinary kriging variance.
+    coords, values, targets = data
+    variogram = _variogram(model)
+    away_from_samples = targets[:150]
+
+    def variance(estimator):
+        fitted = estimator.fit(coords, values)
+        return fitted.predict(away_from_samples, return_variance=True)[1]
+
+    simple = variance(SimpleKriging(variogram, mean=0.0))
+    ordinary = variance(OrdinaryKriging(variogram))
+    universal = variance(UniversalKriging(variogram, trend="linear"))
+
+    assert np.all(simple <= ordinary + 1e-10)
+    assert np.all(ordinary <= universal + 1e-10)
+    assert simple.sum() < ordinary.sum() < universal.sum()
 
 
 @pytest.mark.parametrize("model", MODELS)

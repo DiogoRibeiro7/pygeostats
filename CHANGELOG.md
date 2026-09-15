@@ -27,6 +27,9 @@ follow [PEP 440](https://peps.python.org/pep-0440/).
 
 ### Fixed
 
+- `SimpleKriging` and `UniversalKriging` report their own kriging variance. Both
+  reported the ordinary kriging variance, which is too large for simple kriging and
+  too small for universal kriging (#25).
 - `ParallelKrigingExecutor` returns predictions in the order of the targets. Thread
   and process results were joined in the order tasks finished, which put chunks of
   predictions at other targets' positions without an error (#23).

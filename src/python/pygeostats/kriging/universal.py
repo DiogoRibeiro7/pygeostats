@@ -14,12 +14,7 @@ from sklearn.base import BaseEstimator, RegressorMixin
 
 from ..utils.validation import validate_coordinates, validate_values
 from ..variogram.models import Variogram
-from ._solver import (
-    KrigingSystem,
-    ordinary_system,
-    ordinary_variance,
-    variogram_parameters,
-)
+from ._solver import KrigingSystem, variogram_parameters
 
 _VALID_TRENDS = {"auto", "linear", "quadratic"}
 
@@ -46,7 +41,6 @@ class UniversalKriging(BaseEstimator, RegressorMixin):
         self.trend_aic_: Optional[Dict[str, float]] = None
         self.is_fitted_: bool = False
         self._solution = None
-        self._variance_system: Optional[KrigingSystem] = None
 
     def fit(
         self,
@@ -74,7 +68,6 @@ class UniversalKriging(BaseEstimator, RegressorMixin):
         self.trend_ = selected_trend
         self.trend_aic_ = trend_scores
         self._solution = None
-        self._variance_system = None
         self._current_solution()
         self.is_fitted_ = True
         return self
@@ -97,24 +90,19 @@ class UniversalKriging(BaseEstimator, RegressorMixin):
             self._solution = solution
         return solution
 
-    def _current_variance_system(self) -> KrigingSystem:
-        # The variance reported is the ordinary kriging variance. Its system is
-        # factorised the first time it is needed.
-        parameters = variogram_parameters(self.variogram)
-        system = self._variance_system
-        if system is None or not system.matches(parameters, self.variogram.model):
-            system = ordinary_system(
-                self.coordinates_, parameters, self.variogram.model
-            )
-            self._variance_system = system
-        return system
-
     def predict(
         self,
         coordinates: Union[np.ndarray, gpd.GeoDataFrame, pd.DataFrame],
         return_variance: bool = False,
     ) -> Union[np.ndarray, Tuple[np.ndarray, np.ndarray]]:
-        """Predict values at new locations."""
+        """Predict values at new locations.
+
+        With ``return_variance=True``, also return the universal kriging variance
+        at each location, ``sill - w @ c - mu @ f`` for weights ``w``, covariances
+        ``c`` to the samples, trend features ``f`` and Lagrange multipliers ``mu``,
+        floored at zero. It used to be the ordinary kriging variance, which is
+        smaller, because it does not account for estimating the trend.
+        """
         if not self.is_fitted_:
             raise ValueError("Model must be fitted before prediction")
         if self.trend_ is None:
@@ -123,14 +111,14 @@ class UniversalKriging(BaseEstimator, RegressorMixin):
         pred_coords = validate_coordinates(coordinates)
         system, weights, trend = self._current_solution()
         n_samples = system.n_samples
+        design = _design_matrix(pred_coords, trend)
 
         # The weights hold one entry per sample, then one per trend coefficient.
         predictions = system.covariance_sum(pred_coords, weights[:n_samples])
-        predictions += _design_matrix(pred_coords, trend) @ weights[n_samples:]
+        predictions += design @ weights[n_samples:]
 
         if return_variance:
-            variance = ordinary_variance(self._current_variance_system(), pred_coords)
-            return predictions, variance
+            return predictions, system.variance(pred_coords, design)
 
         return predictions
 
