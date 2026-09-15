@@ -207,6 +207,8 @@ Bug reports, questions and pull requests are welcome in the
 [CONTRIBUTING.md](https://github.com/DiogoRibeiro7/pygeostats/blob/main/CONTRIBUTING.md)
 for the workflow, and the
 [Code of Conduct](https://github.com/DiogoRibeiro7/pygeostats/blob/main/CODE_OF_CONDUCT.md).
+Planned work, milestone by milestone up to 1.0, is in the
+[roadmap](https://github.com/DiogoRibeiro7/pygeostats/blob/main/ROADMAP.md).
 
 ## Name
 
