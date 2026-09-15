@@ -25,6 +25,12 @@ follow [PEP 440](https://peps.python.org/pep-0440/).
 - `ParallelKrigingExecutor` spawns its process workers on every platform. Forked
   workers could wait forever on the Rust core's thread pool (#24).
 
+### Deprecated
+
+- `OrdinaryKriging.predict_parallel()`, which never worked: it raised for any input.
+  It now warns and returns what `predict()` does, since `predict()` already computes
+  targets in parallel, and it will be removed in a future release (#26).
+
 ### Fixed
 
 - `SimpleKriging` and `UniversalKriging` report their own kriging variance. Both

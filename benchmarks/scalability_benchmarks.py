@@ -319,20 +319,11 @@ class ScalabilityBenchmark:
         kriging = OrdinaryKriging(variogram)
         kriging.fit(coords, values)
 
-        # Use parallel prediction with neighbors
-        if hasattr(kriging, "predict_parallel"):
-            return kriging.predict_parallel(
-                pred_coords,
-                neighbors=min(64, len(coords) // 10),
-                chunk_size=min(1000, len(pred_coords)),
-                progress=False,
-            )
-        else:
-            # Fallback to chunked prediction
-            memory_kriging = MemoryEfficientKriging(max_memory_gb=2.0)
-            return memory_kriging.predict_chunked(
-                kriging, pred_coords, show_progress=False
-            )
+        # Neighbour-based prediction is not implemented. This used to call
+        # OrdinaryKriging.predict_parallel, which raised for any input and is now
+        # deprecated, so the chunked prediction it fell back to is what runs.
+        memory_kriging = MemoryEfficientKriging(max_memory_gb=2.0)
+        return memory_kriging.predict_chunked(kriging, pred_coords, show_progress=False)
 
     def _test_gpu_kriging(self, variogram, coords, values, pred_coords):
         """Test GPU-accelerated kriging."""
