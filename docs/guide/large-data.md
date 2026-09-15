@@ -205,7 +205,8 @@ variance, at 1,000 samples and 16,000 targets, `predict` took 1.5 s, eight threa
 1.5 s and four processes 6.2 s; at 4,000 samples, `predict` took 33 s and four
 processes 27 s.
 
-With `execution_method="process"` on Windows or macOS, call it from code guarded by
+Process workers are always spawned, never forked, so with
+`execution_method="process"` call it from code guarded by
 `if __name__ == "__main__":`. `progress_callback(completed, total)` is called as
 chunks finish, and the executor also prints progress messages.
 

@@ -26,6 +26,14 @@ accept. It is also the only route to the neighbour-based kriging in the Rust cor
 batches, and how to krige from local neighbourhoods by hand.
 `benchmarks/kriging_parallel.py` fails for the same reason.
 
+## Kriging can hang in a forked process
+
+The Rust core runs predictions on a pool of threads, and that pool does not survive
+`fork`. A process forked after pygeostats has used it, such as a `multiprocessing`
+worker started with the `fork` method, the default on Linux before Python 3.14, can
+wait on the pool forever. Start such workers with the `spawn` or `forkserver` method
+instead. `ParallelKrigingExecutor` always spawns its process workers.
+
 ## `AnisotropicKriging` measures its angle clockwise
 
 `AnisotropicKriging` rotates each separation counter-clockwise by the variogram's

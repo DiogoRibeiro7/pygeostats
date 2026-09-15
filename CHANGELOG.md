@@ -22,6 +22,8 @@ follow [PEP 440](https://peps.python.org/pep-0440/).
 - A singular kriging system, as when two samples share a location, raises
   `ValueError` at `fit` instead of at `predict`. `AnisotropicKriging` also rejects a
   variogram model other than exponential, spherical or Gaussian at `fit` (#24).
+- `ParallelKrigingExecutor` spawns its process workers on every platform. Forked
+  workers could wait forever on the Rust core's thread pool (#24).
 
 ### Fixed
 
