@@ -4,7 +4,7 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and version numbers
 follow [PEP 440](https://peps.python.org/pep-0440/).
 
-## [0.1.0a1] - 2026-09-14
+## [0.1.0a1] - 2026-09-15
 
 First release, published to PyPI as an alpha pre-release. The project was
 developed as `pyspatialstats` until that name turned out to belong to an
