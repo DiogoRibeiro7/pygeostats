@@ -6,7 +6,7 @@ PySpatialStats: High-performance spatial statistics for Python
 A comprehensive spatial statistics library with Rust-accelerated core algorithms.
 """
 
-__version__ = "0.1.0a1"
+__version__ = "0.1.0a2"
 
 from . import point_patterns, spatial_autocorrelation, utils
 from .point_patterns import (

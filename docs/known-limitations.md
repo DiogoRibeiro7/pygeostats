@@ -1,6 +1,6 @@
 # Known limitations
 
-pygeostats 0.1.0a1 is an alpha release. These are the limitations known at the time
+pygeostats 0.1.0a2 is an alpha release. These are the limitations known at the time
 of release. Unfinished features are covered by strict `xfail` tests, so the test
 suite fails if one is completed without the tests being updated.
 

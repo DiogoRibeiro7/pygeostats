@@ -6,6 +6,12 @@ follow [PEP 440](https://peps.python.org/pep-0440/).
 
 ## [Unreleased]
 
+## [0.1.0a2] - 2026-09-15
+
+Second alpha pre-release. It adds a documentation site, makes kriging prediction
+much faster, and fixes wrong or missing results in parallel prediction and in the
+simple and universal kriging variance.
+
 ### Added
 
 - A documentation site, built with MkDocs, at
@@ -56,6 +62,18 @@ follow [PEP 440](https://peps.python.org/pep-0440/).
   used to run until memory ran out, and returns tiles for bounds with no width or
   height (#23).
 
+### Known limitations
+
+- The workflow from directional variograms to anisotropic kriging is still not
+  implemented, and anisotropy estimates from `detect_anisotropy` and the
+  initialisers are rough: on a few hundred samples the axis can be tens of degrees
+  off.
+- `AnisotropicKriging` measures its rotation angle clockwise, unlike
+  `DirectionalVariogram`.
+- Kriging in a process forked after pygeostats has predicted can hang.
+- The [known limitations](https://diogoribeiro7.github.io/pygeostats/known-limitations/)
+  page has the full list.
+
 ## [0.1.0a1] - 2026-09-15
 
 First release, published to PyPI as an alpha pre-release. The project was
@@ -104,5 +122,6 @@ unrelated package on PyPI.
 - The anisotropy ratio from `detect_anisotropy` runs low, and `RangeInitializer`
   returns starting values rather than model ranges. The README has details.
 
-[Unreleased]: https://github.com/DiogoRibeiro7/pygeostats/compare/v0.1.0a1...HEAD
+[Unreleased]: https://github.com/DiogoRibeiro7/pygeostats/compare/v0.1.0a2...HEAD
+[0.1.0a2]: https://github.com/DiogoRibeiro7/pygeostats/compare/v0.1.0a1...v0.1.0a2
 [0.1.0a1]: https://github.com/DiogoRibeiro7/pygeostats/releases/tag/v0.1.0a1

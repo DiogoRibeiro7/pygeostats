@@ -5,7 +5,7 @@ point-pattern analysis and spatial autocorrelation.
 
 !!! warning "Alpha release"
 
-    pygeostats is at version 0.1.0a1, an alpha pre-release. The API can still
+    pygeostats is at version 0.1.0a2, an alpha pre-release. The API can still
     change, and one workflow is unfinished. Read
     [Known limitations](known-limitations.md) before relying on directional or
     anisotropy analysis.
