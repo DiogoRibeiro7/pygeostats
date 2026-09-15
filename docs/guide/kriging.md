@@ -87,6 +87,10 @@ print(universal.trend_)      # the trend that was used
 print(universal.trend_aic_)  # AIC of each candidate trend
 ```
 
+Each estimator reports its own kriging variance. With the same variogram and at the
+same locations, simple kriging's is the smallest, because the mean is known, and
+universal kriging's the largest, because the trend has to be estimated.
+
 ## Anisotropic kriging
 
 `AnisotropicKriging` stretches distances so that correlation reaches further along
