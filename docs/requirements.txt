@@ -1,5 +1,5 @@
 # Pinned so the site builds the same way locally, in CI and on GitHub Pages.
 mkdocs==1.6.1
 mkdocs-material==9.7.7
-mkdocstrings[python]==1.0.6
+mkdocstrings[python]==1.0.8
 mkdocstrings-python==2.0.8
